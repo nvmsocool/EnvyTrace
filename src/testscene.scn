@@ -1,0 +1,21 @@
+
+screen 1600 1200
+camera 0.900000 -0.800003 -0.600000 0.250000 118.553841 17.232212 -40.977234 0.010000 1.199999
+ambient 0.125000 0.125000 0.125000
+light 5 5 5
+sphere -2 -1.5 3.5 1.5
+brdf 0.500000 0.500000 0.900000 0.000000 0.000000 0.000000 10 0.000000 0.000000 0.000000 1.0
+box -10 -10 -5.5 20 20 0.1
+box -10 -10  5.5 20 20 0.1
+brdf 0.900000 0.500000 0.500000 0.000000 0.000000 0.000000 10 0.000000 0.000000 0.000000 1.0
+box  8 -10 -10 0.1 20 20
+box -3 -10 -10 0.1 20 20
+brdf 0.200000 0.200000 0.200000 0.000000 0.000000 0.000000 10 0.000000 0.000000 0.000000 1.0
+box -10  4 -10 20 0.1 20
+box -10 -8 -10 20 0.1 20
+
+brdf 1 1 1 0.000000 0.000000 -0.000000 2000
+# fractal parameters: pos scale rotation step_iterations num_subdivisions min_distance {options}
+# options will be read and applied in order
+# options: fold 0 (normal vector), rotate 1 (euler angles), scale 2 (scale factors), translate 3(translation amt) 
+fractal 0 0 -1     2     125 0 -85     100 11 0.0001   0  1 1 0       0  0 1 0     0  0 0 1     0  1 1 -.8      1  10 10 15

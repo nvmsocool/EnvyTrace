@@ -182,18 +182,11 @@ int main(int argc, char** argv)
     float s = 0.1f;
     float r_s = 0.05f;
 
-    Eigen::Quaternionf r_x_p = rot_from_euler(r_s,0,0);
-    Eigen::Quaternionf r_x_n = rot_from_euler(-r_s,0,0);
-    Eigen::Quaternionf r_y_p = rot_from_euler(0,r_s,0);
-    Eigen::Quaternionf r_y_n = rot_from_euler(0,-r_s,0);
-    Eigen::Quaternionf r_z_p = rot_from_euler(0,0,r_s);
-    Eigen::Quaternionf r_z_n = rot_from_euler(0,0,-r_s);
-
     bool can_receive_input = false;
 
-    while (!(GetAsyncKeyState(VK_ESCAPE) && GetAsyncKeyState(VK_SHIFT)))
+    while (!(GetAsyncKeyState(VK_ESCAPE) && GetAsyncKeyState(VK_SHIFT) && GetConsoleWindow() == GetForegroundWindow()))
     {
-      bool update_pass = trace_num < 10 || (trace_num - 1) % 10 == 0 || GetAsyncKeyState(VK_SPACE);
+      bool update_pass = trace_num < 10 || (trace_num - 1) % 10 == 0 || (GetAsyncKeyState(VK_SPACE) && GetConsoleWindow() == GetForegroundWindow());
       scene->TraceImage(image, trace_num++, update_pass);
       if (update_pass)
       {
@@ -204,7 +197,7 @@ int main(int argc, char** argv)
 
       scene->realtime->UpdateEvent();
 
-      if (GetAsyncKeyState(VK_F10))
+      if (GetAsyncKeyState(VK_F10) && GetConsoleWindow() == GetForegroundWindow())
       {
         can_receive_input = !can_receive_input;
         PurgeUsedKeys();
@@ -217,33 +210,32 @@ int main(int argc, char** argv)
       if (can_receive_input)
       {
         bool reset = false;
-        if (GetAsyncKeyState(0x41)) { scene->MoveCamera(Eigen::Vector3f(-s, 0, 0)); reset = true; } //"A"
-        if (GetAsyncKeyState(0x44)) { scene->MoveCamera(Eigen::Vector3f( s, 0, 0)); reset = true; } //"D"
-        if (GetAsyncKeyState(0x45)) { scene->MoveCamera(Eigen::Vector3f(0, 0,  s)); reset = true; } //"E"
-        if (GetAsyncKeyState(0x51)) { scene->MoveCamera(Eigen::Vector3f(0, 0, -s)); reset = true; } //"Q"
-        if (GetAsyncKeyState(0x53)) { scene->MoveCamera(Eigen::Vector3f(0, -s, 0)); reset = true; } //"S"
-        if (GetAsyncKeyState(0x57)) { scene->MoveCamera(Eigen::Vector3f(0,  s, 0)); reset = true; } //"W"
-
-        if (GetAsyncKeyState(0x4A)) { scene->RotateCamera(r_y_p); reset = true; } // "J"
-        if (GetAsyncKeyState(0x4C)) { scene->RotateCamera(r_y_n); reset = true; } // "L"
-        if (GetAsyncKeyState(0x4B)) { scene->RotateCamera(r_x_n); reset = true; } // "K"
-        if (GetAsyncKeyState(0x49)) { scene->RotateCamera(r_x_p); reset = true; } // "I"
-        if (GetAsyncKeyState(0x4F)) { scene->RotateCamera(r_z_n); reset = true; } // "O"
-        if (GetAsyncKeyState(0x55)) { scene->RotateCamera(r_z_p); reset = true; } // "U"
-
-        if (GetAsyncKeyState(0x30)) { scene->DefaultMode = Scene::DEBUG_MODE::NONE;    reset = true; can_receive_input = false; std::cout << "input disabled" << std::endl; } // "Alphanumeric_0"
-        if (GetAsyncKeyState(0x31)) { scene->DefaultMode = Scene::DEBUG_MODE::SIMPLE;  reset = true; } // "Alphanumeric_1"
-        if (GetAsyncKeyState(0x32)) { scene->DefaultMode = Scene::DEBUG_MODE::NORMAL;  reset = true; } // "Alphanumeric_2"
-        if (GetAsyncKeyState(0x33)) { scene->DefaultMode = Scene::DEBUG_MODE::DEPTH;   reset = true; } // "Alphanumeric_3"
-        if (GetAsyncKeyState(0x34)) { scene->DefaultMode = Scene::DEBUG_MODE::DIFFUSE; reset = true; } // "Alphanumeric_4"
-
-        if (GetAsyncKeyState(0x50)) { scene->depth_of_field = !scene->depth_of_field; reset = true; } // "P"
-        if (GetAsyncKeyState(0x59)) {  //"Y"
+        if (GetAsyncKeyState(0x41) && GetConsoleWindow() == GetForegroundWindow()) { scene->MoveCamera(Eigen::Vector3f(-s, 0, 0)); reset = true; } //"A"
+        if (GetAsyncKeyState(0x44) && GetConsoleWindow() == GetForegroundWindow()) { scene->MoveCamera(Eigen::Vector3f( s, 0, 0)); reset = true; } //"D"
+        if (GetAsyncKeyState(0x45) && GetConsoleWindow() == GetForegroundWindow()) { scene->MoveCamera(Eigen::Vector3f(0, 0, -s)); reset = true; } //"E"
+        if (GetAsyncKeyState(0x51) && GetConsoleWindow() == GetForegroundWindow()) { scene->MoveCamera(Eigen::Vector3f(0, 0,  s)); reset = true; } //"Q"
+        if (GetAsyncKeyState(0x53) && GetConsoleWindow() == GetForegroundWindow()) { scene->MoveCamera(Eigen::Vector3f(0, -s, 0)); reset = true; } //"S"
+        if (GetAsyncKeyState(0x57) && GetConsoleWindow() == GetForegroundWindow()) { scene->MoveCamera(Eigen::Vector3f(0,  s, 0)); reset = true; } //"W"
+        if (GetAsyncKeyState(0x4A) && GetConsoleWindow() == GetForegroundWindow()) { scene->RotateCamera(rot_from_euler(0, r_s, 0)); reset = true; } // "J"
+        if (GetAsyncKeyState(0x4C) && GetConsoleWindow() == GetForegroundWindow()) { scene->RotateCamera(rot_from_euler(0, -r_s, 0)); reset = true; } // "L"
+        if (GetAsyncKeyState(0x4B) && GetConsoleWindow() == GetForegroundWindow()) { scene->RotateCamera(rot_from_euler(-r_s, 0, 0)); reset = true; } // "K"
+        if (GetAsyncKeyState(0x49) && GetConsoleWindow() == GetForegroundWindow()) { scene->RotateCamera(rot_from_euler(r_s, 0, 0)); reset = true; } // "I"
+        if (GetAsyncKeyState(0x4F) && GetConsoleWindow() == GetForegroundWindow()) { scene->RotateCamera(rot_from_euler(0, 0, -r_s)); reset = true; } // "O"
+        if (GetAsyncKeyState(0x55) && GetConsoleWindow() == GetForegroundWindow()) { scene->RotateCamera(rot_from_euler(0, 0, r_s)); reset = true; } // "U"
+        if (GetAsyncKeyState(0x30) && GetConsoleWindow() == GetForegroundWindow()) { scene->DefaultMode = Scene::DEBUG_MODE::NONE;    reset = true; can_receive_input = false; std::cout << "input disabled" << std::endl; } // "Alphanumeric_0"
+        if (GetAsyncKeyState(0x31) && GetConsoleWindow() == GetForegroundWindow()) { scene->DefaultMode = Scene::DEBUG_MODE::SIMPLE;  reset = true; } // "Alphanumeric_1"
+        if (GetAsyncKeyState(0x32) && GetConsoleWindow() == GetForegroundWindow()) { scene->DefaultMode = Scene::DEBUG_MODE::NORMAL;  reset = true; } // "Alphanumeric_2"
+        if (GetAsyncKeyState(0x33) && GetConsoleWindow() == GetForegroundWindow()) { scene->DefaultMode = Scene::DEBUG_MODE::DEPTH;   reset = true; } // "Alphanumeric_3"
+        if (GetAsyncKeyState(0x34) && GetConsoleWindow() == GetForegroundWindow()) { scene->DefaultMode = Scene::DEBUG_MODE::DIFFUSE; reset = true; } // "Alphanumeric_4"
+        if (GetAsyncKeyState(0x50) && GetConsoleWindow() == GetForegroundWindow()) { scene->depth_of_field = !scene->depth_of_field; reset = true; } // "P"
+        if (GetAsyncKeyState(0x59) && GetConsoleWindow() == GetForegroundWindow()) {  //"Y"
           //reload scene
           SetupScene(scene, inName);
           reset = true;
           trace_num = 1;
         }
+        if (GetAsyncKeyState(0x6B) && GetConsoleWindow() == GetForegroundWindow()) { s *= 1.1; r_s *= 1.1; } //"Add"
+        if (GetAsyncKeyState(0x6D) && GetConsoleWindow() == GetForegroundWindow()) { s *= 0.9; r_s *= 0.9; } //"Subtract"
 
         if (reset)
           ClearImage(image, scene->width, scene->height, trace_num);

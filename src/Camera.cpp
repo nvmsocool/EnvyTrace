@@ -15,7 +15,7 @@ void Camera::SetProperties(Eigen::Quaternionf r, Eigen::Vector3f p, float _ry, f
 
 void Camera::Move(Eigen::Vector3f p)
 {
-  position += p;
+  position += rotation._transformVector(p);
   PrintSettings();
 }
 

@@ -56,14 +56,16 @@ void Interval::Intersect(Eigen::Vector3f n, float d_0, float d_1, const Ray &in)
     {
       t_0 = t_a;
       t_1 = t_b;
+      n_0 = -n;
+      n_1 = n;
     }
     else
     {
       t_0 = t_b;
       t_1 = t_a;
+      n_0 = n;
+      n_1 = -n;
     }
 
-    n_0 = n;
-    n_1 = -n;
   }
 }

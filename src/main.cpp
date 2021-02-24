@@ -182,7 +182,7 @@ int main(int argc, char** argv)
 
     // Read the command line argument
     std::string inName =  (argc > 1) ? argv[1] : "testscene.scn";
-    bool autoStart = argc > 2 ? false : true;
+    bool autoStart = argc > 2 ? true : false;
     std::string hdrName = inName;
     hdrName.replace(hdrName.size() - 3, hdrName.size(), "hdr");
 

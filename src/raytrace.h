@@ -98,7 +98,7 @@ public:
 
     // The main program will call the TraceImage method to generate
     // and return the image.  This is the Ray Tracer!
-    void TraceImage(Color* image, const int pass, bool update_pass);
+    float TraceImage(Color* image, const int pass, bool update_pass);
 
     // Generates objects from mesh file
     void GenTris(MeshData *md);

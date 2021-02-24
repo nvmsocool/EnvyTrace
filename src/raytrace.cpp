@@ -292,7 +292,7 @@ void tick(std::string msg, bool report = false)
 }
 
 
-void Scene::TraceImage(Color *image, const int pass, bool update_pass)
+float Scene::TraceImage(Color *image, const int pass, bool update_pass)
 {
   if (update_pass)
     tick("start");
@@ -326,7 +326,11 @@ void Scene::TraceImage(Color *image, const int pass, bool update_pass)
   }
 
   if (update_pass)
+  {
     tick("Convergence: " + std::to_string(diff), true);
+    return diff / (width * height);
+  }
+  return 1;
 
 }
 
@@ -444,12 +448,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     w_i = (L.P - P.P).normalized();
     Intersection &I = FireRayIntoScene(minimizer, w_i);
     if (I.object == L.object)
-    {
-      Eigen::Vector3f rad = EvalRadiance(L);
-      Eigen::Vector3f addon = 0.5f * weight.cwiseProduct(EvalScattering(N, w_i, P)).cwiseProduct(rad) / p;
-      addon = Eigen::Vector3f((std::min)(addon.x(), rad.x()), (std::min)(addon.y(), rad.y()), (std::min)(addon.z(), rad.z()));
-      color += addon;
-    }
+      color += 0.5f * weight.cwiseProduct(EvalScattering(N, w_i, P)).cwiseProduct(EvalRadiance(L)) / p;
 
 
     //extend path

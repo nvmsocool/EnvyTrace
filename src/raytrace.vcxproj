@@ -119,7 +119,8 @@ xcopy .\libs\assimp\32\assimp.dll .\Debug/Y /D</Command>
     <PostBuildEvent>
       <Command>xcopy .\libs\assimp\32\assimp.dll .\Release /Y /D</Command>
       <Command>xcopy .\libs\glbinding.dll .\Release /Y /D
-xcopy .\libs\assimp\32\assimp.dll .\Release /Y /D</Command>
+xcopy .\libs\assimp\32\assimp.dll .\Release /Y /D
+copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

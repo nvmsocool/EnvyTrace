@@ -186,9 +186,6 @@ int main(int argc, char** argv)
     std::string hdrName = inName;
     hdrName.replace(hdrName.size() - 3, hdrName.size(), "hdr");
 
-    if (autoStart)
-      scene->DefaultMode = Scene::DEBUG_MODE::NONE;
-
 
     SetupScene(scene, inName);
 
@@ -204,6 +201,11 @@ int main(int argc, char** argv)
     float r_s = 0.05f;
 
     bool can_receive_input = false;
+
+    
+
+    if (autoStart)
+      scene->DefaultMode = Scene::DEBUG_MODE::NONE;
 
     while (!(GetAsyncKeyState(VK_ESCAPE) && GetAsyncKeyState(VK_SHIFT) && GetConsoleWindow() == GetForegroundWindow()))
     {

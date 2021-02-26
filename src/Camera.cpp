@@ -40,21 +40,23 @@ void Camera::ResetViews()
   ViewZ = -1.f * rotation._transformVector(Eigen::Vector3f::UnitZ());
 }
 
+std::string Camera::GetCameraString()
+{
+  auto euler = QuatToEuler(rotation);
+  return std::string("camera ")
+    + std::to_string(position.x()) + " "
+    + std::to_string(position.y()) + " "
+    + std::to_string(position.z()) + " "
+    + std::to_string(ry) + " "
+    + std::to_string(euler.x()) + " "
+    + std::to_string(euler.y()) + " "
+    + std::to_string(euler.z()) + " "
+    + std::to_string(w) + " "
+    + std::to_string(f);
+}
+
 void Camera::PrintSettings()
 {
-  //print last camera config, for copying into scene file
-  //format:
-  // camera pos.x pos.y pos.z ry rot.x, rot.y, rot.z
-  auto euler = QuatToEuler(rotation);
-  std::cout
-    << std::to_string(position.x()) << " "
-    << std::to_string(position.y()) << " "
-    << std::to_string(position.z()) << " "
-    << std::to_string(ry) << " "
-    << std::to_string(euler.x()) << " "
-    << std::to_string(euler.y()) << " "
-    << std::to_string(euler.z()) << " "
-    << std::to_string(w) << " "
-    << std::to_string(f) << " "
-    << std::endl;
+  //print last camera config
+  std::cout << GetCameraString() << std::endl;
 }

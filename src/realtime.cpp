@@ -11,6 +11,9 @@
 #include "raytrace.h"
 #include "realtime.h"
 
+static const char *WINDOW_NAME = "EnvyTrace";
+static const LPCWSTR WINDOW_NAME_WSTR = L"EnvyTrace";
+
 // Stupid C++ needs callbacks to be static functions.
 static Realtime* globalRealtime = nullptr;
 void CBDrawScene()  { globalRealtime->DrawScene(); } 
@@ -293,7 +296,7 @@ Realtime::Realtime(int w, int h)
     glutInitContextProfile(GLUT_COMPATIBILITY_PROFILE);
 
     glutInitWindowSize(w, h);
-    glutCreateWindow("Envy Fractals");
+    glutCreateWindow(WINDOW_NAME);
     glutSetOption((GLenum)GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 
     glutIgnoreKeyRepeat(true);
@@ -342,7 +345,9 @@ Realtime::Realtime(int w, int h)
     rightDown = false;
     motionkey = 0;
 
-    ambient = Vector3f(0.2, 0.2, 0.2);    
+    ambient = Vector3f(0.2, 0.2, 0.2);   
+
+    displaywindow = glutGetWindow();
 }
 
 // This function enters the event loop.
@@ -367,6 +372,11 @@ void Realtime::setup()
   cDist = eye.norm();
   glutReshapeWindow(width, height);
   ReshapeWindow(width, height);
+}
+
+bool Realtime::isWindowActive()
+{
+  return GetForegroundWindow() == FindWindow(NULL, WINDOW_NAME_WSTR);
 }
 // Called when the scene needs to be redrawn.
 void Realtime::DrawScene()
@@ -498,32 +508,47 @@ void Realtime::ReshapeWindow(int w, int h)
     glutPostRedisplay();
 }
 
+void Realtime::RequestResize(int w, int h)
+{
+  //destroy and start again
+  setScreen(w, h);
+
+  glutDestroyWindow(displaywindow);
+
+  glutInitWindowSize(w, h);
+  glutCreateWindow(WINDOW_NAME);
+  glutSetOption((GLenum)GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+  glutReshapeWindow(width, height);
+  ReshapeWindow(width, height);
+  displaywindow = glutGetWindow();
+}
+
 // Called by GLUT for keyboard actions.
 void Realtime::KeyboardDown(unsigned char key, int x, int y)
 {
-    printf("key: %c\n", key);
-    switch(key) {
-    case 9:
-        nav = !nav;
-        break;
-
-    case 'v': {
-        Quaternionf q = ViewQuaternion();
-        printf("camera  %g %g %g   %g   q %g %g %g %g\n",
-               eye[0], eye[1], eye[2], ry,  q.w(), q.x(), q.y(), q.z());
-        printf("screen %d %d\n", width, height);
-        fflush(stdout); }
-        break;
-
-    case 'w': case 's': case 'a': case 'd': case 'e': case 'c':
-        motionkey = key;
-        break;
-        
-    case 27:                    // Escape key
-    case 'q':
-        glutLeaveMainLoop();
-        break;
-    }
+    //printf("key: %c\n", key);
+    //switch(key) {
+    //case 9:
+    //    nav = !nav;
+    //    break;
+    //
+    //case 'v': {
+    //    Quaternionf q = ViewQuaternion();
+    //    printf("camera  %g %g %g   %g   q %g %g %g %g\n",
+    //           eye[0], eye[1], eye[2], ry,  q.w(), q.x(), q.y(), q.z());
+    //    printf("screen %d %d\n", width, height);
+    //    fflush(stdout); }
+    //    break;
+    //
+    //case 'w': case 's': case 'a': case 'd': case 'e': case 'c':
+    //    motionkey = key;
+    //    break;
+    //    
+    //case 27:                    // Escape key
+    //case 'q':
+    //    glutLeaveMainLoop();
+    //    break;
+    //}
 }
 
 void Realtime::KeyboardUp(unsigned char key, int x, int y)

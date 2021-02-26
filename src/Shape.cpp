@@ -212,6 +212,9 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
   // else if its below a threshold, return an intersection?
 
   float dist = 0;
+  int colorsteps = 0;
+  int totalColorSteps = max_iteration;
+  float lastEst;
   for (int steps = 0; steps < max_iteration; steps++)
   {
     Eigen::Vector3f p = in.origin + dist * in.direction;
@@ -224,9 +227,9 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       i.P = in.eval(i.t);
       i.object = this;
       //i.Kd = FoldBased(i.P);
-      float f = (static_cast<float>(steps) / static_cast<float>(max_iteration)) * 4.f;
+      float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * 14.f;
       while (f > 1) f -= 1;
-      i.Kd = (ColorFromFloat(f) * 0.75f + FoldBased(i.P) * 0.25f);
+      i.Kd = ((ColorFromFloat(f) + Eigen::Vector3f::Ones()) * 0.5f);
 
       //norm needs to be estimated
       Eigen::Vector3f step_back = in.origin + (dist - min_distance) * in.direction;
@@ -238,6 +241,12 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       ).normalized();
       return;
     }
+    if (estimate > lastEst)
+    {
+      colorsteps = 1;
+    }
+    colorsteps += 1;
+    lastEst = estimate;
   }
   //no intersection
 }
@@ -275,7 +284,8 @@ float Fractal::DE_Triangle(Eigen::Vector3f _z)
 
 float Fractal::DE_Generic(Eigen::Vector3f _z)
 {
-  Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
+  //Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
+  Eigen::Vector3f z = _z;
   float r = z.squaredNorm();
   int i = 0;
   for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
@@ -303,7 +313,8 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
         }
     }
 
-    z = Scale * (z - Eigen::Vector3f::Ones()) + Eigen::Vector3f::Ones();
+    //z = Scale * (z - Eigen::Vector3f::Ones()) + Eigen::Vector3f::Ones();
+    z = z * Scale - Center * (Scale - 1);
     r = z.squaredNorm();
   }
 

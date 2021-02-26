@@ -66,7 +66,6 @@ public:
     KdBVH<float, 3, Shape *> Tree;
     bool depth_of_field;
     bool first_load{ true };
-    bool first_camera{ true };
 
     enum DEBUG_MODE
     {
@@ -87,7 +86,7 @@ public:
     // The scene reader-parser will call the Command method with the
     // contents of each line in the scene file.
     void Command(const std::vector<std::string>& strings,
-                 const std::vector<float>& f);
+                 const std::vector<float>& f, bool hard);
 
     // To read a model file into the scene via ASSIMP, call ReadAssimpFile.  
     void ReadAssimpFile(const std::string& path, const Matrix4f& M);

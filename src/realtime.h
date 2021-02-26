@@ -82,11 +82,13 @@ public:
     ShaderProgram lighting;
 
     int width, height;
+    int displaywindow, consolewindow;
     void setScreen(const int _width, const int _height) { width=_width;  height=_height; }
     void setCamera(const Vector3f& _eye, const Quaternionf& _o, const float _ry)
     { eye=_eye; orient=_o; ry=_ry; }
     void setAmbient(const Vector3f& _a) { ambient = _a; }
     int setTexture(const int width, const int height, unsigned char* image);
+    bool isWindowActive();
     
     std::vector<Obj*> objs;
     std::vector<Obj*> lights;
@@ -109,6 +111,7 @@ public:
     void DrawArray(Color *image);
     void UpdateEvent();
     void ReshapeWindow(int w, int h);
+    void RequestResize(int w, int h);
     void KeyboardUp(unsigned char key, int x, int y);
     void KeyboardDown(unsigned char key, int x, int y);
     void MouseButton(int button, int state, int x, int y);

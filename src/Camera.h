@@ -17,6 +17,7 @@ public:
   void Rotate(Eigen::Quaternionf r);
   void ChangeFOV(float w, float f);
   void ResetViews();
+  std::string GetCameraString();
   void PrintSettings();
 
 private:

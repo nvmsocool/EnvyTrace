@@ -136,7 +136,7 @@ void Material::setTexture(const std::string path)
 static const float ToRad_f = 3.14159f / 180.f;
 
 void Scene::Command(const std::vector<std::string> &strings,
-  const std::vector<float> &f)
+  const std::vector<float> &f, bool hard)
 {
   if (strings.size() == 0) return;
   std::string c = strings[0];
@@ -151,19 +151,25 @@ void Scene::Command(const std::vector<std::string> &strings,
       height = int(f[2]);
       first_load = false;
     }
+    else if (width != f[1] || height != f[2])
+    {
+      width = int(f[1]);
+      height = int(f[2]);
+      realtime->RequestResize(width, height);
+
+    }
   }
 
   else if (c == "camera") {
     // syntax: camera x y z   ry   <orientation spec>
     // Eye position (x,y,z),  view orientation (qw qx qy qz),  frustum height ratio ry
 
-    if (first_camera)
+    if (hard)
     {
       Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
 
       //realtime->setCamera(Vector3f(f[1], f[2], f[3]), Orientation(5, strings, f), f[4]);
       camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], width, height, f[8], f[9]);
-      first_camera = false;
     }
     camera.w = f[8];
     camera.f = f[9];
@@ -325,10 +331,12 @@ float Scene::TraceImage(Color *image, const int pass, bool update_pass)
     }
   }
 
+  diff /= width * height;
+
   if (update_pass)
   {
     tick("Convergence: " + std::to_string(diff), true);
-    return diff / (width * height);
+    return diff;
   }
   return 1;
 

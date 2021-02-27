@@ -243,19 +243,23 @@ int main(int argc, char** argv)
       scene->DefaultMode = Scene::DEBUG_MODE::NONE;
 
     bool isWindowActive = GetConsoleWindow() == GetForegroundWindow();
+    bool isPaused = false;
 
     while (!(GetAsyncKeyState(VK_ESCAPE) && GetAsyncKeyState(VK_SHIFT) && isWindowActive))
     {
       isWindowActive = GetConsoleWindow() == GetForegroundWindow() || scene->realtime->isWindowActive();
-      bool update_pass = trace_num < 10 || (trace_num - 1) % 10 == 0 || (GetAsyncKeyState(VK_SPACE) && isWindowActive);
-      float diff = scene->TraceImage(image, trace_num++, update_pass);
-      if (update_pass)
+      if (!isPaused)
       {
-        //just in case...
-        scene->realtime->DrawArray(image);
-        WriteHdrImage(hdrName, scene->width, scene->height, image);
-        if (diff < 0.0000001f && autoStart)
-          break;
+        bool update_pass = trace_num < 10 || (trace_num - 1) % 10 == 0 || (GetAsyncKeyState(VK_SPACE) && isWindowActive);
+        float diff = scene->TraceImage(image, trace_num++, update_pass);
+        if (update_pass)
+        {
+          //just in case...
+          scene->realtime->DrawArray(image);
+          WriteHdrImage(hdrName, scene->width, scene->height, image);
+          if (diff < 0.0000001f && autoStart)
+            break;
+        }
       }
 
       scene->realtime->UpdateEvent();
@@ -270,8 +274,8 @@ int main(int argc, char** argv)
         if (GetAsyncKeyState(0x44)) { scene->MoveCamera(Eigen::Vector3f( s, 0, 0)); reset = true; } //"D"
         if (GetAsyncKeyState(0x45)) { scene->MoveCamera(Eigen::Vector3f(0, 0, -s)); reset = true; } //"E"
         if (GetAsyncKeyState(0x51)) { scene->MoveCamera(Eigen::Vector3f(0, 0,  s)); reset = true; } //"Q"
-        if (!GetAsyncKeyState(VK_CONTROL) && GetAsyncKeyState(0x53)) { scene->MoveCamera(Eigen::Vector3f(0, -s, 0)); reset = true; } //"S"
-        if (GetAsyncKeyState(0x57) && isWindowActive) { scene->MoveCamera(Eigen::Vector3f(0,  s, 0)); reset = true; } //"W"
+        if (GetAsyncKeyState(0x57)) { scene->MoveCamera(Eigen::Vector3f(0,  s, 0)); reset = true; } //"W"
+        if (GetAsyncKeyState(0x53) && !GetAsyncKeyState(VK_CONTROL)) { scene->MoveCamera(Eigen::Vector3f(0, -s, 0)); reset = true; } //"S"
 
         if (GetAsyncKeyState(0x4A)) { scene->RotateCamera(rot_from_euler(0, r_s, 0)); reset = true; } // "J"
         if (GetAsyncKeyState(0x4C)) { scene->RotateCamera(rot_from_euler(0, -r_s, 0)); reset = true; } // "L"
@@ -286,9 +290,11 @@ int main(int argc, char** argv)
         if (GetAsyncKeyState(0x33)) { scene->DefaultMode = Scene::DEBUG_MODE::DEPTH;   reset = true; } // "Alphanumeric_3"
         if (GetAsyncKeyState(0x34)) { scene->DefaultMode = Scene::DEBUG_MODE::DIFFUSE; reset = true; } // "Alphanumeric_4"
 
-        if (GetAsyncKeyState(0x50)) { scene->depth_of_field = !scene->depth_of_field; reset = true; } // "P"
+        
+        if (GetAsyncKeyState(0x46)) { scene->depth_of_field = !scene->depth_of_field; reset = true; } // "F"
+        if (GetAsyncKeyState(0x50)) { std::cout << (isPaused ? "unpause" : "pause") << std::endl; isPaused = !isPaused; SetInput(can_receive_input, false); } // "P"
 
-        if (GetAsyncKeyState(0x59)) {  //"Y"
+        if (GetAsyncKeyState(0x52)) {  //"R"
           //reload scene
           if (GetAsyncKeyState(VK_SHIFT))
           {

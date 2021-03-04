@@ -24,8 +24,8 @@ float Minimizer::minimumOnObject(Shape *obj) {
 // Return INF to indicate no intersection.
 float Minimizer::minimumOnVolume(const Eigen::AlignedBox<float, 3> &box)
 {
-  Eigen::Vector3f L = box.min(); // Box corner
-  Eigen::Vector3f U = box.max(); // Box corner
+  Eigen::Vector3f L = (box.min)(); // Box corner
+  Eigen::Vector3f U = (box.max)(); // Box corner
 
   // intersect slabs
   Interval inter;

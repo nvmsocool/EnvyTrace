@@ -150,10 +150,10 @@ copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
     <ClInclude Include="Material.h" />
     <ClInclude Include="Minimizer.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="random.h" />
     <ClInclude Include="Ray.h" />
     <ClInclude Include="realtime.h" />
     <ClInclude Include="geom.h" />
+    <ClInclude Include="rgbe.h" />
     <ClInclude Include="Shape.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -97,7 +97,7 @@ public:
 
     // The main program will call the TraceImage method to generate
     // and return the image.  This is the Ray Tracer!
-    float TraceImage(Color* image, const int pass, bool update_pass);
+    float TraceImage(std::vector<Color> &image, const int pass, bool update_pass);
 
     // Generates objects from mesh file
     void GenTris(MeshData *md);
@@ -127,9 +127,5 @@ public:
     float PdfLight(Shape *L);
     float GeometryFactor(Intersection &P, Intersection &L);
     Intersection &FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction);
-    void MedianFilter(Color *image, Color *temp_image);
-    void LocalReduction(Color *noisy_image, Color *filtered_image);
-    void ScanNeighborhoodV(Color *image, int x, int y, int w, Eigen::Vector3f &mean, Eigen::Vector3f &variance);
-    Eigen::Vector3f ScanNeighborhood(Color *image, int x, int y, int w);
 
 };

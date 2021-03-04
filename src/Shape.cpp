@@ -1,6 +1,5 @@
 #include "Shape.h"
 #include "Interval.h"
-#include "random.h"
 #include "material.h"
 
 #include <iostream>
@@ -227,9 +226,9 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       i.P = in.eval(i.t);
       i.object = this;
       //i.Kd = FoldBased(i.P);
-      float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * 14.f;
+      float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * 3.f;
       while (f > 1) f -= 1;
-      i.Kd = ((ColorFromFloat(f) + Eigen::Vector3f::Ones()) * 0.5f);
+      //i.Kd = ((ColorFromFloat(f) + 3 * Eigen::Vector3f::Ones()) * 0.25f);
 
       //norm needs to be estimated
       Eigen::Vector3f step_back = in.origin + (dist - min_distance) * in.direction;
@@ -243,7 +242,7 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
     }
     if (estimate > lastEst)
     {
-      colorsteps = 1;
+      //colorsteps = 1;
     }
     colorsteps += 1;
     lastEst = estimate;

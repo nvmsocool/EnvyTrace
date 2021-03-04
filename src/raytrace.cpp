@@ -26,7 +26,6 @@
 #include "stb_image.h"
 #include <chrono>
 #include <stack>
-#include "random.h"
 
 // A good quality *thread-safe* Mersenne Twister random number generator.
 #include <random>
@@ -133,7 +132,6 @@ void Material::setTexture(const std::string path)
   stbi_image_free(image);
 }
 
-static const float ToRad_f = 3.14159f / 180.f;
 
 void Scene::Command(const std::vector<std::string> &strings,
   const std::vector<float> &f, bool hard)
@@ -175,14 +173,6 @@ void Scene::Command(const std::vector<std::string> &strings,
     camera.f = f[9];
   }
 
-  else if (c == "ambient") {
-    // syntax: ambient r g b
-    // Sets the ambient color.  Note: This parameter is temporary.
-    // It will be ignored once your raytracer becomes capable of
-    // accurately *calculating* the true ambient light.
-    //realtime->setAmbient(Vector3f(f[1], f[2], f[3]));
-  }
-
   else if (c == "brdf") {
     // syntax: brdf  r g b   r g b  alpha
     // later:  brdf  r g b   r g b  alpha  r g b ior
@@ -204,21 +194,18 @@ void Scene::Command(const std::vector<std::string> &strings,
   else if (c == "sphere") {
     // syntax: sphere x y z   r
     // Creates a Shape instance for a sphere defined by a center and radius
-    //realtime->sphere(Vector3f(f[1], f[2], f[3]), f[4], currentMat);
     spheres.push_back(Sphere(f[4], Vector3f(f[1], f[2], f[3]), currentMat));
   }
 
   else if (c == "box") {
     // syntax: box bx by bz   dx dy dz
     // Creates a Shape instance for a box defined by a corner point and diagonal vector
-    //realtime->box(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), currentMat);
     boxes.push_back(Box(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), currentMat));
   }
 
   else if (c == "cylinder") {
     // syntax: cylinder bx by bz   ax ay az  r
     // Creates a Shape instance for a cylinder defined by a base point, axis vector, and radius
-    //realtime->cylinder(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], currentMat);
     cylinders.push_back(Cylinder(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], currentMat));
   }
 
@@ -284,6 +271,7 @@ void Scene::Command(const std::vector<std::string> &strings,
     fprintf(stderr, "*********************************************\n\n");
   }
 }
+
 std::chrono::steady_clock::time_point prior, current;
 
 void tick(std::string msg, bool report = false)
@@ -298,7 +286,7 @@ void tick(std::string msg, bool report = false)
 }
 
 
-float Scene::TraceImage(Color *image, const int pass, bool update_pass)
+float Scene::TraceImage(std::vector<Color> &image, const int pass, bool update_pass)
 {
   if (update_pass)
     tick("start");
@@ -311,6 +299,7 @@ float Scene::TraceImage(Color *image, const int pass, bool update_pass)
 
     Ray r(Eigen::Vector3f::Ones(), Eigen::Vector3f::Ones());
     Minimizer minimizer(r);
+    int y_add = y * width;
 
     for (int x = 0; x < width; x++) {
       if (depth_of_field)
@@ -318,7 +307,7 @@ float Scene::TraceImage(Color *image, const int pass, bool update_pass)
       else
         SetRayAA(r, x, y);
 
-      int pos = y * width + x;
+      int pos = y_add + x;
       Color old = image[pos];
       if (DefaultMode == Scene::DEBUG_MODE::NONE)
         image[pos] = (1 - weight) * old + weight * BVHTracePath(r, minimizer, false);
@@ -374,11 +363,7 @@ void Scene::SetRayAA(Ray &r, int x, int y)
 
 void Scene::SetRayDOF(Ray &r, int x, int y)
 {
-  //float rad = w * std::sqrt(-2 * std::log(randf())) * std::cos(pi_2 * randf());
-  //float rad = w * std::sqrt(randf());
   float rad = camera.w * randf();
-  //float rad = randf() + randf();
-  //rad = rad > 1.f ? w * (2.f - rad) : w * rad;
   float theta = pi_2 * randf();
   float dx = rad * std::cos(theta);
   float dy = rad * std::sin(theta);
@@ -548,106 +533,3 @@ Eigen::AlignedBox<float, 3> bounding_box(const Shape *obj)
 {
   return obj->BoundingBox; // Assuming each Shape object has its own bbox method.
 };
-
-void Scene::MedianFilter(Color *noisy_image, Color *filtered_image)
-{
-#pragma omp parallel for schedule(dynamic, 1) // Magic: Multi-thread y loop
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
-      int pos = y * width + x;
-      //scan neighborhood, calculate med
-      filtered_image[pos] = ScanNeighborhood(noisy_image, x, y, 3);
-    }
-  }
-}
-
-int clamp(int val, int min, int max)
-{
-  return (std::min)(max, (std::max)(min, val));
-}
-
-Eigen::Vector3f Scene::ScanNeighborhood(Color *image, int x, int y, int w)
-{
-  std::vector<std::priority_queue<float>> left(3);
-  std::vector<std::priority_queue <float, std::vector<float>, std::greater<float> >> right(3);
-  for (int i = clamp(y - w, 0, height); i < clamp(y + w + 1, 0, height); i++)
-  {
-    for (int j = clamp(x - w, 0, width); j < clamp(x + w + 1, 0, width); j++)
-    {
-      int pos = i * width + j;
-      Color c = image[pos];
-      for (int k = 0; k < 3; k++)
-      {
-        float val = c[k];
-        if (left[k].size() == 0 || val < left[k].top())
-        {
-          left[k].push(val);
-          if (left[k].size() - right[k].size() > 1)
-          {
-            right[k].push(left[k].top());
-            left[k].pop();
-          }
-        }
-        else
-        {
-          right[k].push(val);
-          if (right[k].size() - left[k].size() > 0)
-          {
-            left[k].push(right[k].top());
-            right[k].pop();
-          }
-        }
-      }
-    }
-  }
-  return Eigen::Vector3f(left[0].top(), left[1].top(), left[2].top());
-}
-
-void Scene::LocalReduction(Color *noisy_image, Color *filtered_image)
-{
-  float expVariance = 0.0001;
-
-#pragma omp parallel for schedule(dynamic, 1) // Magic: Multi-thread y loop
-  for (int y = 0; y < height; y++)
-  {
-    Eigen::Vector3f mean, variance;
-    for (int x = 0; x < width; x++)
-    {
-      int pos = y * width + x;
-      ScanNeighborhoodV(noisy_image, x, y, 3, mean, variance);
-      Eigen::Vector3f val = noisy_image[pos];
-      for (int k = 0; k < 3; k++)
-      {
-        if (variance[k] < .001f)
-          filtered_image[pos][k] = val[k];
-        else
-          filtered_image[pos][k] = clamp(val[k] - (expVariance / variance[k]) * (val[k] - mean[k]), 0, 10);
-      }
-    }
-  }
-}
-
-void Scene::ScanNeighborhoodV(Color *image, int x, int y, int w, Eigen::Vector3f &mean, Eigen::Vector3f &variance)
-{
-  mean = Eigen::Vector3f::Zero();
-  variance = Eigen::Vector3f::Zero();
-  int scanned = 0;
-  for (int i = clamp(y - w, 0, height); i < clamp(y + w + 1, 0, height); i++)
-  {
-    for (int j = clamp(x - w, 0, width); j < clamp(x + w + 1, 0, width); j++)
-    {
-      int pos = y * width + x;
-      scanned++;
-      Eigen::Vector3f val = image[pos];
-      for (int k = 0; k < 3; k++)
-      {
-        mean[k] += val[k];
-        variance[k] += val[k] * val[k];
-      }
-    }
-  }
-
-  mean = mean / scanned;
-  variance = (variance / scanned) - mean.cwiseProduct(mean);
-
-}

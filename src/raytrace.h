@@ -60,6 +60,11 @@ public:
     std::vector<Cylinder> cylinders;
     std::vector<Fractal> fractals;
 
+    std::vector<std::vector<Color>> unique_pixels;
+    std::vector<std::vector<Eigen::Vector3f>> ray_directions;
+    std::vector<float> exact_unique_pixel_counts;
+    std::vector<std::vector<int>> unique_indexes;
+
     std::vector<Material> materials;
     std::vector<Light> lights;
 
@@ -82,6 +87,7 @@ public:
     Scene();
     void Finit();
     void ClearAll();
+    void ReCalcDirs();
 
     // The scene reader-parser will call the Command method with the
     // contents of each line in the scene file.
@@ -98,6 +104,10 @@ public:
     // The main program will call the TraceImage method to generate
     // and return the image.  This is the Ray Tracer!
     float TraceImage(std::vector<Color> &image, const int pass, bool update_pass);
+
+    // The main program will call the TraceImage method to generate
+    // and return the image.  This is the Ray Tracer!
+    float TraceHalfDome(std::vector<Color> &image, const int pass, bool update_pass);
 
     // Generates objects from mesh file
     void GenTris(MeshData *md);

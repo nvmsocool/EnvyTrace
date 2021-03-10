@@ -213,7 +213,7 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
   float dist = 0;
   int colorsteps = 0;
   int totalColorSteps = max_iteration;
-  float lastEst;
+  //float lastEst = 0;
   for (int steps = 0; steps < max_iteration; steps++)
   {
     Eigen::Vector3f p = in.origin + dist * in.direction;
@@ -225,7 +225,7 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       i.t = dist;
       i.P = in.eval(i.t);
       i.object = this;
-      //i.Kd = FoldBased(i.P);
+      i.Kd = FoldBased(i.P);
       float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * 3.f;
       while (f > 1) f -= 1;
       //i.Kd = ((ColorFromFloat(f) + 3 * Eigen::Vector3f::Ones()) * 0.25f);
@@ -240,12 +240,12 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       ).normalized();
       return;
     }
-    if (estimate > lastEst)
+    //if (estimate > lastEst)
     {
       //colorsteps = 1;
     }
     colorsteps += 1;
-    lastEst = estimate;
+    //lastEst = estimate;
   }
   //no intersection
 }

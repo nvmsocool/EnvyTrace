@@ -76,6 +76,64 @@ void Scene::Finit()
 
   Tree = KdBVH<float, 3, Shape *>(objects_p.begin(), objects_p.end());
 
+  for (size_t i = 0; i < unique_pixels.size(); i++)
+  {
+    unique_pixels[i].clear();
+    ray_directions[i].clear();
+    unique_indexes[i].clear();
+  }
+
+  unique_pixels.clear();
+  ray_directions.clear();
+  exact_unique_pixel_counts.clear();
+  unique_indexes.clear();
+
+  unique_pixels.resize(height);
+  ray_directions.resize(height);
+  exact_unique_pixel_counts.resize(height);
+  unique_indexes.resize(height);
+
+  float even_half = height % 2 == 0 ? height / 2.f - 1.f : (height - 1.f) / 2.f;
+  for (int i = 0; i < height; i++)
+  {
+    float a = std::floor(std::abs(i - (height - 1.f) / 2.f));
+    float b = a / even_half;
+    float c = std::sqrt(1 - b * b);
+    float d = c * (width - 1) + 1;
+    unique_pixels[i].resize(std::floor(d));
+    ray_directions[i].resize(std::floor(d));
+    unique_indexes[i].resize(width);
+    exact_unique_pixel_counts[i] = d;
+
+    for (int j = 0; j < width; j++)
+    {
+      unique_indexes[i][j] = (std::min)(static_cast<int>(std::floor(j * exact_unique_pixel_counts[i] / static_cast<float>(width))), static_cast<int>(unique_pixels[i].size()-1));
+    }
+
+  }
+
+  ReCalcDirs();
+
+}
+
+
+void Scene::ReCalcDirs()
+{
+  for (int i = 0; i < height; i++)
+  {
+    for (int j = 0; j < unique_pixels[i].size(); j++)
+    {
+      //degrees in from x axis
+      float theta = (2.f * j + 1.f) * pi / static_cast<float>(2 * unique_pixels[i].size()) - (pi / 2);
+      //degrees down from y axis
+      float phi = (pi * i / height) - (pi / 2);
+
+      Eigen::Quaternionf rot =
+        Eigen::AngleAxisf(phi, camera.rotation._transformVector(Eigen::Vector3f::UnitX()))
+        * Eigen::AngleAxisf(theta, camera.rotation._transformVector(Eigen::Vector3f::UnitY()));
+      ray_directions[i][j] = rot._transformVector(camera.ViewZ).normalized();
+    }
+  }
 }
 
 void Scene::triangleMesh(MeshData *mesh)
@@ -92,17 +150,17 @@ Quaternionf Orientation(int i,
   while (i < strings.size()) {
     std::string c = strings[i++];
     if (c == "x")
-      q *= angleAxis(f[i++] * Radians, Vector3f::UnitX());
+      q *= angleAxis(f[i++] * ToRad, Vector3f::UnitX());
     else if (c == "y")
-      q *= angleAxis(f[i++] * Radians, Vector3f::UnitY());
+      q *= angleAxis(f[i++] * ToRad, Vector3f::UnitY());
     else if (c == "z")
-      q *= angleAxis(f[i++] * Radians, Vector3f::UnitZ());
+      q *= angleAxis(f[i++] * ToRad, Vector3f::UnitZ());
     else if (c == "q") {
       q *= Quaternionf(f[i + 0], f[i + 1], f[i + 2], f[i + 3]);
       i += 4;
     }
     else if (c == "a") {
-      q *= angleAxis(f[i + 0] * Radians, Vector3f(f[i + 1], f[i + 2], f[i + 3]).normalized());
+      q *= angleAxis(f[i + 0] * ToRad, Vector3f(f[i + 1], f[i + 2], f[i + 3]).normalized());
       i += 4;
     }
   }
@@ -331,6 +389,75 @@ float Scene::TraceImage(std::vector<Color> &image, const int pass, bool update_p
 
 }
 
+
+float Scene::TraceHalfDome(std::vector<Color> &image, const int pass, bool update_pass)
+{
+  if (update_pass)
+    tick("start");
+
+  float diff = 0;
+  float weight = 1.f / static_cast<float>(pass);
+
+
+
+#pragma omp parallel for schedule(dynamic, 1) // Magic: Multi-thread y loop
+  for (int y = 0; y < height; y++) {
+
+    Ray r(camera.position, Eigen::Vector3f::Ones());
+    Minimizer minimizer(r);
+
+    int y_add = y * width;
+
+    int halfway = width / 2;
+    for (int x = 0; x < width; x++) {
+
+      //create ray in that direction
+      //r.direction = ray_directions[y][x];
+      float theta = pi * (y + randf()) / height;
+      float z_d = std::cos(theta);
+      float sinTheta = std::sin(theta);
+      float phi;
+      if (x < halfway)
+      {
+        r.origin = camera.position;
+        phi = pi * ((2.f * x) + 0.5f) / width;
+      }
+      else
+      {
+        r.origin = camera.position - camera.rotation._transformVector(Eigen::Vector3f(0.035, 0, 0));
+        phi = pi * (2.f * (x- halfway) + randf()) / width;
+      }
+      float x_d = sinTheta * std::cos(phi);
+      float y_d = sinTheta * std::sin(phi);
+      r.direction = camera.rotation._transformVector(Eigen::Vector3f(x_d, y_d, z_d)).normalized();
+
+      //move it a bit for AA
+
+      int pos = y_add + x;
+      Color old = image[pos];
+      Color new_color;
+      if (DefaultMode == Scene::DEBUG_MODE::NONE)
+        new_color = BVHTracePath(r, minimizer, false);
+      else
+        new_color = BVHTraceDebug(r, minimizer, DefaultMode);
+
+      image[pos] = (1 - weight) * old + weight * new_color;
+
+      if (update_pass)
+        diff += std::abs(old.x() - image[pos].x()) + std::abs(old.y() - image[pos].y()) + std::abs(old.z() - image[pos].z());
+
+    }
+  }
+
+  diff /= width * height;
+
+  if (update_pass)
+  {
+    tick("Convergence: " + std::to_string(diff), true);
+    return diff;
+  }
+  return 1;
+}
 
 void Scene::GenTris(MeshData *md)
 {

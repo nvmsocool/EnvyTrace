@@ -222,6 +222,8 @@ int main(int argc, char** argv)
     bool isWindowActive = true;
     bool isPaused = false;
     bool releasedF10 = true;
+    
+    bool halfDome = true;
 
     if (autoStart)
       scene->DefaultMode = Scene::DEBUG_MODE::NONE;
@@ -232,7 +234,11 @@ int main(int argc, char** argv)
       if (!isPaused)
       {
         bool update_pass = trace_num < 10 || (trace_num - 1) % 10 == 0 || (IsKeyDown("Space") && isWindowActive);
-        float diff = scene->TraceImage(image, trace_num++, update_pass);
+        float diff;
+        if (halfDome)
+          diff = scene->TraceHalfDome(image, trace_num++, update_pass);
+        else
+          diff = scene->TraceImage(image, trace_num++, update_pass);
         if (update_pass)
         {
           //just in case...
@@ -296,7 +302,10 @@ int main(int argc, char** argv)
         if (IsKeyDown("Control") && IsKeyDown("S")) { SaveCopy(inName); RewriteScene(inName, scene); }
 
         if (reset)
+        {
           ClearImage(image, scene->width, scene->height, trace_num);
+          scene->ReCalcDirs();
+        }
       }
 
     }

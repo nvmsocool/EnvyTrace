@@ -223,7 +223,7 @@ int main(int argc, char** argv)
     bool isPaused = false;
     bool releasedF10 = true;
     
-    bool halfDome = true;
+    bool halfDome = false;
 
     if (autoStart)
       scene->DefaultMode = Scene::DEBUG_MODE::NONE;
@@ -284,9 +284,11 @@ int main(int argc, char** argv)
         if (IsKeyDown("Alphanumeric_2")) { scene->DefaultMode = Scene::DEBUG_MODE::NORMAL;  reset = true; }
         if (IsKeyDown("Alphanumeric_3")) { scene->DefaultMode = Scene::DEBUG_MODE::DEPTH;   reset = true; }
         if (IsKeyDown("Alphanumeric_4")) { scene->DefaultMode = Scene::DEBUG_MODE::DIFFUSE; reset = true; }
+        if (IsKeyDown("Alphanumeric_5")) { scene->DefaultMode = Scene::DEBUG_MODE::POSITION; reset = true; }
 
-        
-        if (IsKeyDown("F")) { scene->depth_of_field = !scene->depth_of_field; reset = true; } // "F"
+
+        if (IsKeyDown("F")) { scene->depth_of_field = !scene->depth_of_field; reset = true; }
+        if (IsKeyDown("H")) { halfDome = !halfDome; reset = true; }
         if (IsKeyDown("P")) { std::cout << (isPaused ? "unpause" : "pause") << std::endl; isPaused = !isPaused; SetInput(can_receive_input, false); }
 
         if (IsKeyDown("R")) {

@@ -79,6 +79,7 @@ public:
       DEPTH,
       DIFFUSE,
       SIMPLE,
+      POSITION,
       NUM_MODES
     };
 
@@ -129,10 +130,10 @@ public:
     Color BVHTracePath(Ray &r, Minimizer &minimizer, bool option);
     Color BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE m);
     void SampleLight(Intersection &I);
-    Eigen::Vector3f EvalScattering(Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s);
-    float PdfBRDF(Eigen::Vector3f &N, Eigen::Vector3f &w_i);
+    Eigen::Vector3f EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s);
+    float PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s);
     Eigen::Vector3f EvalRadiance(Intersection &Q);
-    Eigen::Vector3f SampleBRDF(Eigen::Vector3f &N);
+    Eigen::Vector3f SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Intersection &s);
     Eigen::Vector3f  SampleLobe(Eigen::Vector3f &N, float r1, float r2);
     float PdfLight(Shape *L);
     float GeometryFactor(Intersection &P, Intersection &L);

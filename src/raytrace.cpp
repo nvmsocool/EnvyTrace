@@ -546,7 +546,12 @@ Intersection &Scene::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
 
 bool isNotValidVec(Eigen::Vector3f &v)
 {
-  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z()) || std::abs(v.x()) > 1000000 || std::abs(v.y()) > 1000000 || std::abs(v.z()) > 1000000;
+  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z());
+}
+
+bool isNotReasonableVec(Eigen::Vector3f &v)
+{
+  return std::abs(v.x()) > 10000 || std::abs(v.y()) > 10000 || std::abs(v.z()) > 10000;
 }
 
 void PrintMe(Eigen::Vector3f vec, std::string msg)
@@ -558,6 +563,8 @@ void PrintMe(float f, std::string msg)
 {
   std::cout << std::to_string(f) << msg << std::endl;
 }
+
+//#define LOGGIN
 
 Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 {
@@ -578,30 +585,83 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
   w_o = -r.direction;
   float p;
 
+  std::string log = "";
+  bool build_log = true;
+
   while (randf() < RussianRoulette)
   {
+#ifdef LOGGIN
+    log += "start bounce\n";
+#endif
     // always starts here
     r.origin = P.P;
+
+
+#ifdef LOGGIN
+      log += std::to_string(w_o.x());
+      log += ",";
+      log += std::to_string(w_o.y());
+      log += ",";
+      log += std::to_string(w_o.z());
+      log += "(<-w_o)\n";
+#endif
 
     // explicit light
     SampleLight(L);
     p = PdfLight(L.object) / GeometryFactor(P, L);
+#ifdef LOGGIN
+      log += std::to_string(p);
+      log += "(<- explicit p)\n";
+#endif
     
     //check if p is positive, not necessary?
     
     w_i = (L.P - P.P).normalized();
-
+#ifdef LOGGIN
+      log += std::to_string(w_i.x());
+      log += ",";
+      log += std::to_string(w_i.y());
+      log += ",";
+      log += std::to_string(w_i.z());
+      log += "(<-explicit w_i)\n";
+#endif
     Intersection &I = FireRayIntoScene(minimizer, w_i);
     if (I.object == L.object)
     {
       Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
       color += 0.5f * weight.cwiseProduct(f).cwiseProduct(EvalRadiance(L)) / p;
+
+#ifdef LOGGIN
+        log += std::to_string(f.x());
+        log += ",";
+        log += std::to_string(f.y());
+        log += ",";
+        log += std::to_string(f.z());
+        log += "(<-explicit scattering)\n";
+        log += std::to_string(color.x());
+        log += ",";
+        log += std::to_string(color.y());
+        log += ",";
+        log += std::to_string(color.z());
+        log += "( <-explicit color added)\n";
+#endif
+
     }
 
 
     //extend path
     N = P.N;
     w_i = SampleBRDF(w_o, N, P);
+
+#ifdef LOGGIN
+      log += std::to_string(w_i.x());
+      log += ",";
+      log += std::to_string(w_i.y());
+      log += ",";
+      log += std::to_string(w_i.z());
+      log += "(<-implicit w_i)\n";
+#endif
+
     Intersection &Q = FireRayIntoScene(minimizer, w_i);
 
     //if intersection doesn't exist, break
@@ -611,26 +671,72 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
     p = PdfBRDF(w_o, N, w_i, P) * RussianRoulette;
 
+#ifdef LOGGIN
+      log += std::to_string(f.x());
+      log += ",";
+      log += std::to_string(f.y());
+      log += ",";
+      log += std::to_string(f.z());
+      log += "(<-implicit scattering)\n";
+      log += std::to_string(p);
+      log += " (<-implicit p)\n";
+#endif
+
     if (p < 0.0001f)
       break;
 
     weight = weight.cwiseProduct(f / p);
+
+#ifdef LOGGIN
+      log += std::to_string(weight.x());
+      log += ",";
+      log += std::to_string(weight.y());
+      log += ",";
+      log += std::to_string(weight.z());
+      log += "(<-current weight)\n";
+#endif
 
     //light connection
     if (Q.object->material->isLight())
     {
       // after light
       color += 0.5 * weight.cwiseProduct(EvalRadiance(Q));
+
+#ifdef LOGGIN
+        log += std::to_string(color.x());
+        log += ",";
+        log += std::to_string(color.y());
+        log += ",";
+        log += std::to_string(color.z());
+        log += "(<-implicit color added)\n";
+#endif
+
       break;
     }
     P = Q;
     w_o = -w_i;
   }
 
+  float mx = 1000.f;
+  
+  //cap color
+  float max_channel = (std::max)(color.x(), (std::max)(color.y(), color.z()));
+  if (max_channel > mx)
+    color *= mx / max_channel;
   if (isNotValidVec(color))
   {
-    std::cout << "Path Resulted in a NAN..." << std::endl;
+    std::cout << "Path Resulted in a NAN:" << std::endl;
   }
+  if (isNotReasonableVec(color))
+  {
+    std::cout << "Path Resulted in a big value:" << std::endl;
+  }
+
+#ifdef LOGGIN
+  if (isNotValidVec(color) || isNotReasonableVec(color))
+    std::cout << log << std::endl;
+#endif
+
   return color;
 }
 
@@ -648,16 +754,53 @@ Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, 
   float N_w_i = (std::max)(0.0f, N.dot(w_i));
   Material *m = i.object->material;
   float denom = (4 * std::abs(w_i.dot(N)) * std::abs(w_o.dot(N)));
+  Eigen::Vector3f ret;
   if (denom == 0)
-    return N_w_i * diffuse;
+  {
+    ret = N_w_i * diffuse;
+#ifdef LOGGIN
+    if (isNotValidVec(ret))
+    {
+      PrintMe(diffuse, "diffuse");
+      PrintMe(N_w_i, "N_w_i");
+      PrintMe(half, "N_w_i");
+      PrintMe(denom, "denom");
+    }
+#endif
+    return ret;
+  }
 
   float D = m->D(half, N);
   Eigen::Vector3f F = m->F(w_i.dot(half));
   float G = m->G(w_i, w_o, half, N);
-
   Eigen::Vector3f specular = (D * G * F) / denom;
 
-  return N_w_i * (diffuse + specular);
+  ret = N_w_i * (diffuse + specular);
+
+#ifdef LOGGIN
+  if (isNotValidVec(ret))
+  {
+    PrintMe(diffuse, "diffuse");
+    PrintMe(N_w_i, "N_w_i");
+    PrintMe(half, "N_w_i");
+    PrintMe(D, "D");
+    PrintMe(G, "G");
+    PrintMe(F, "F");
+    PrintMe(denom, "denom");
+
+    float a_2 = m->alpha * m->alpha;
+    float h_N = half.dot(N);
+    float tan_theta = std::sqrt(1 - h_N * h_N) / h_N;
+    float denom2 = (PI * std::pow(h_N, 4) * std::pow(a_2 + tan_theta * tan_theta, 2));
+    PrintMe(a_2, "a_2");
+    PrintMe(h_N, "h_N");
+    PrintMe(tan_theta, "tan_theta");
+    PrintMe(denom2, "denom2");
+
+  }
+#endif
+
+  return ret;
 }
 
 Eigen::Vector3f Scene::SampleLobe(Eigen::Vector3f &N, float c, float phi)

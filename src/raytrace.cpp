@@ -41,7 +41,7 @@ Scene::Scene() : depth_of_field(false)
 
 void Scene::Finit()
 {
-  std::srand(time(NULL));
+  std::srand(1234567);
 
   for (int i = 0; i < 1000; i++)
   {
@@ -513,8 +513,15 @@ Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
   if (minimizer.closest_int.object != nullptr)
   {
     if (mode == DEBUG_MODE::SIMPLE)
-      for (auto l : lights_p)
-        color += (std::max)(0.0f, minimizer.closest_int.N.dot((l->Position - minimizer.closest_int.object->Position).normalized())) * (minimizer.closest_int.Kd.x() > 0 ? minimizer.closest_int.Kd : minimizer.closest_int.object->material->Kd);
+    {
+      for (auto l : lights_p) {
+        //color += (std::max)(0.0f, minimizer.closest_int.N.dot((l->Position - minimizer.closest_int.object->Position).normalized())) * (minimizer.closest_int.Kd.x() > 0 ? minimizer.closest_int.Kd : minimizer.closest_int.object->material->Kd);
+        Eigen::Vector3f w_o = -r.direction;
+        Intersection &i = minimizer.closest_int;
+        Eigen::Vector3f w_i = (l->Position - i.P).normalized();
+        color += static_cast<Light *>(l->material)->light_value.cwiseProduct(EvalScattering(w_o, i.N, w_i, i));
+      }
+    }
     else if (mode == DEBUG_MODE::NORMAL)
       color = Eigen::Vector3f(std::abs(minimizer.closest_int.N.x()), std::abs(minimizer.closest_int.N.y()), std::abs(minimizer.closest_int.N.z()));
     else if (mode == DEBUG_MODE::DEPTH)
@@ -539,7 +546,17 @@ Intersection &Scene::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
 
 bool isNotValidVec(Eigen::Vector3f &v)
 {
-  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z()) || std::abs(v.x()) > 100000 || std::abs(v.y()) > 100000 || std::abs(v.z()) > 100000;
+  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z()) || std::abs(v.x()) > 1000000 || std::abs(v.y()) > 1000000 || std::abs(v.z()) > 1000000;
+}
+
+void PrintMe(Eigen::Vector3f vec, std::string msg)
+{
+  std::cout << std::to_string(vec.x()) << "," << std::to_string(vec.y()) << "," << std::to_string(vec.z()) << msg << std::endl;
+}
+
+void PrintMe(float f, std::string msg)
+{
+  std::cout << std::to_string(f) << msg << std::endl;
 }
 
 Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
@@ -561,12 +578,6 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
   w_o = -r.direction;
   float p;
 
-  std::vector<float> probs;
-  std::vector<Eigen::Vector3f> fs;
-  std::vector<float> l_probs;
-  std::vector<Eigen::Vector3f> l_fs;
-  std::vector<Eigen::Vector3f> l_rads;
-
   while (randf() < RussianRoulette)
   {
     // always starts here
@@ -575,25 +586,16 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     // explicit light
     SampleLight(L);
     p = PdfLight(L.object) / GeometryFactor(P, L);
-
+    
     //check if p is positive, not necessary?
-
+    
     w_i = (L.P - P.P).normalized();
+
     Intersection &I = FireRayIntoScene(minimizer, w_i);
     if (I.object == L.object)
     {
-      l_probs.push_back(p);
-      l_fs.push_back(EvalScattering(w_o, N, w_i, P));
-      l_rads.push_back(EvalRadiance(L));
-      Eigen::Vector3f newColor = color + 0.5f * weight.cwiseProduct(EvalScattering(w_o, N, w_i, P)).cwiseProduct(EvalRadiance(L)) / p;
-      if (isNotValidVec(newColor))
-      {
-        int test = 0;
-        Eigen::Vector3f fxx = EvalScattering(w_o, N, w_i, P);
-        Eigen::Vector3f txx = EvalRadiance(L);
-        p = (std::min)(1.f, PdfLight(L.object) / GeometryFactor(P, L));
-      }
-      color = newColor;
+      Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
+      color += 0.5f * weight.cwiseProduct(f).cwiseProduct(EvalRadiance(L)) / p;
     }
 
 
@@ -608,42 +610,27 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 
     Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
     p = PdfBRDF(w_o, N, w_i, P) * RussianRoulette;
-    probs.push_back(p);
-    fs.push_back(f);
+
     if (p < 0.0001f)
       break;
 
-    Eigen::Vector3f newWeight = weight.cwiseProduct(f / p);
-    if (isNotValidVec(newWeight))
-    {
-      int test = 0;
-      Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
-      p = PdfBRDF(w_o, N, w_i, P) * RussianRoulette;
-    }
-    weight = newWeight;
+    weight = weight.cwiseProduct(f / p);
 
     //light connection
     if (Q.object->material->isLight())
     {
       // after light
-      Eigen::Vector3f newColor = color + 0.5 * weight.cwiseProduct(EvalRadiance(Q));
-      if (isNotValidVec(newColor))
-      {
-        int test = 0;
-      }
-      color = newColor;
+      color += 0.5 * weight.cwiseProduct(EvalRadiance(Q));
       break;
     }
     P = Q;
     w_o = -w_i;
   }
 
-  //float mx = 5.f;
-  //
-  ////cap color
-  //float max_channel = (std::max)(color.x(), (std::max)(color.y(), color.z()));
-  //if (max_channel > mx)
-  //  color *= mx / max_channel;
+  if (isNotValidVec(color))
+  {
+    std::cout << "Path Resulted in a NAN..." << std::endl;
+  }
   return color;
 }
 
@@ -658,12 +645,19 @@ Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, 
   Eigen::Vector3f color = i.Kd.x() > 0 ? i.Kd : i.object->material->Kd;
   Eigen::Vector3f diffuse = color / pi;
   Eigen::Vector3f half = (w_o + w_i).normalized();
+  float N_w_i = (std::max)(0.0f, N.dot(w_i));
   Material *m = i.object->material;
   float denom = (4 * std::abs(w_i.dot(N)) * std::abs(w_o.dot(N)));
   if (denom == 0)
-    return std::abs(N.dot(w_i)) * diffuse;
-  Eigen::Vector3f specular = (m->D(half, N) * m->G(w_i, w_o, half, N) * m->F(w_i.dot(half))) / denom;
-  return std::abs(N.dot(w_i)) * (diffuse + specular);
+    return N_w_i * diffuse;
+
+  float D = m->D(half, N);
+  Eigen::Vector3f F = m->F(w_i.dot(half));
+  float G = m->G(w_i, w_o, half, N);
+
+  Eigen::Vector3f specular = (D * G * F) / denom;
+
+  return N_w_i * (diffuse + specular);
 }
 
 Eigen::Vector3f Scene::SampleLobe(Eigen::Vector3f &N, float c, float phi)
@@ -700,7 +694,7 @@ float Scene::PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &
 
 Eigen::Vector3f Scene::EvalRadiance(Intersection &Q)
 {
-  return Q.object->material->Kd;
+  return static_cast<Light *>(Q.object->material)->light_value;
 }
 
 Eigen::Vector3f Scene::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Intersection &s)
@@ -716,7 +710,7 @@ Eigen::Vector3f Scene::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Inte
   else
   {
     //specular
-    float theta = atan2(a * std::sqrt(r1), std::sqrt(1 - r1));
+    float theta = atan(a * std::sqrt(r1) / std::sqrt(1 - r1));
     Eigen::Vector3f m = SampleLobe(N, cos(theta), pi_2 * r2);
     return 2 * w_o.dot(m) * m - w_o;
   }

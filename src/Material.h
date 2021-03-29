@@ -40,7 +40,14 @@ class Light : public Material
 {
 public:
 
-  Light(const Eigen::Vector3f e, bool _isLightParm) : Material() { Kd = e; _isLight = _isLightParm; }
+  Light(const Eigen::Vector3f e, bool _isLightParm) : Material() { 
+    light_value = e; 
+    _isLight = _isLightParm; 
+    alpha = 1;
+    Kd = Eigen::Vector3f::Ones();
+    Ks = Eigen::Vector3f::Ones();
+  }
   virtual bool isLight() { return _isLight; }
   //virtual void apply(const unsigned int program);
+  Eigen::Vector3f light_value;
 };

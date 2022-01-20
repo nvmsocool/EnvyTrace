@@ -38,6 +38,7 @@ void Sphere::Intersect(const Ray &in, Intersection &i)
   i.object = this;
   i.P = in.eval(i.t);
   i.N = (i.P - Center).normalized();
+  i.Calc_IOR_Ratio(-in.direction);
 }
 
 void Sphere::GetRandomPointOn(Intersection &I)
@@ -67,7 +68,7 @@ void Box::Intersect(const Ray &in, Intersection &i)
   //no intersection
   if (inter.t_0 > inter.t_1 || inter.t_1 < OriginErrorMargin)
     return;
-  
+
   // intersection
   if (inter.t_0 > OriginErrorMargin)
   {
@@ -82,6 +83,7 @@ void Box::Intersect(const Ray &in, Intersection &i)
 
   i.object = this;
   i.P = in.eval(i.t);
+  i.Calc_IOR_Ratio(-in.direction);
   //get normal?
   //get uv
 
@@ -129,6 +131,7 @@ void Triangle::Intersect(const Ray &in, Intersection &i)
   i.N = (1 - u - v) * n1 + u * n2 + v * n3;
   i.object = this;
   i.uv = (1 - u - v) * t1 + u * t2 + v * t3;
+  i.Calc_IOR_Ratio(-in.direction);
 }
 
 void Cylinder::Intersect(const Ray &in, Intersection &i)
@@ -139,14 +142,14 @@ void Cylinder::Intersect(const Ray &in, Intersection &i)
 
   //transform ray
   Ray rotated(q._transformVector(in.origin - Base), q._transformVector(in.direction));
-  
+
   //full ray
   Interval All;
 
   //end plane slab
   Interval EndCaps(Eigen::Vector3f::UnitZ(), 0, -Axis.norm(), rotated);
   //normal is from slab?
-  
+
   //circular top-down
   Interval TopDown;
   float a = rotated.direction.x() * rotated.direction.x() + rotated.direction.y() * rotated.direction.y();
@@ -195,9 +198,10 @@ void Cylinder::Intersect(const Ray &in, Intersection &i)
     i.N = All.n_1;
   }
   i.P = in.eval(i.t);
+  i.Calc_IOR_Ratio(-in.direction);
 
   //uv?
-  
+
 }
 
 static const Eigen::Vector3f norm_step_x(1.f, 0.0f, 0.0f);
@@ -225,10 +229,19 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       i.t = dist;
       i.P = in.eval(i.t);
       i.object = this;
-      i.Kd = FoldBased(i.P);
-      float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * 3.f;
+      i.Calc_IOR_Ratio(-in.direction);
+      float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * color_it_scale + color_it_add;
       while (f > 1) f -= 1;
-      //i.Kd = ((ColorFromFloat(f) + 3 * Eigen::Vector3f::Ones()) * 0.25f);
+      Eigen::Vector3f it_based = ColorFromFloat(f);
+
+      if (color_it_intensity < 0)
+        it_based *= (1 + color_it_intensity);
+      else
+        it_based += (Eigen::Vector3f::Ones() - it_based) * color_it_intensity;
+
+      Eigen::Vector3f fold_based = FoldBased(i.P);
+
+      i.Kd = color_it_fold_ratio * it_based + (1.f - color_it_fold_ratio) * fold_based;
 
       //norm needs to be estimated
       Eigen::Vector3f step_back = in.origin + (dist - min_distance) * in.direction;
@@ -250,82 +263,177 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
   //no intersection
 }
 
+#include "Eulers.h"
+
+bool Fractal::RenderGUI(int n)
+{
+  bool something_changed = false;
+
+  something_changed |= ImGui::InputInt((std::string("max_iteration") + std::to_string(n)).data(), &max_iteration);
+  something_changed |= ImGui::DragFloat((std::string("min_distance") + std::to_string(n)).data(), &min_distance, 0.00001f, 0.0f, 1000.0f, "%.5f");
+  something_changed |= ImGui::InputInt((std::string("num_subdivisions") + std::to_string(n)).data(), &num_subdivisions);
+
+  ImGui::Separator();
+
+  something_changed |= ImGui::DragFloat3((std::string("center") + std::to_string(n)).data(), Center.data(), 0.01f, -10000, 10000, "%.2f");
+  something_changed |= ImGui::DragFloat((std::string("scale") + std::to_string(n)).data(), &Scale, 0.001f, 0, 100000, "%.3f");
+  if (ImGui::DragFloat3((std::string("rotation") + std::to_string(n)).data(), &rot_eulers[0], 0.1f, -180, 180, "%.1f"))
+  {
+    something_changed = true;
+    rot = EulerToQuat(rot_eulers);
+    rot_inv = rot.inverse();
+  }
+
+  ImGui::Separator();
+
+  something_changed |= ImGui::SliderFloat((std::string("color_it_add") + std::to_string(n)).data(), &color_it_add, 0.f, 1.f);
+  something_changed |= ImGui::DragFloat((std::string("color_it_scale") + std::to_string(n)).data(), &color_it_scale, 0.1f, 0.f, 1000.f, "%.1f");
+  something_changed |= ImGui::SliderFloat((std::string("color_it_fold_ratio") + std::to_string(n)).data(), &color_it_fold_ratio, 0.f, 1.f);
+  something_changed |= ImGui::SliderFloat((std::string("color_it_intensity") + std::to_string(n)).data(), &color_it_intensity, -1.f, 1.f);
+
+  for (size_t i = 0; i < CombinedActions.size(); i++)
+  {
+
+    ImGui::Separator();
+    const char *items[] = {
+    "Fold",
+    "Rotation",
+    "Scale",
+    "Translation", };
+
+    if (ImGui::Combo((std::string("type##") + std::to_string(n) + std::to_string(i)).data(), &CombinedActions[i].action_type, items, IM_ARRAYSIZE(items), 4))
+    {
+      something_changed = true;
+      switch (CombinedActions[i].action_type)
+      {
+      case 0:
+        // fold
+        CombinedActions[i].DisplayOp = Eigen::Vector3f(1, 0, 0);
+        break;
+      case 1:
+        //rotation
+        CombinedActions[i].DisplayOp = Eigen::Vector3f(0, 0, 0);
+        CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
+        break;
+      case 2:
+        //scale
+        CombinedActions[i].DisplayOp = Eigen::Vector3f(1, 1, 1);
+        break;
+      case 3:
+        //translation
+        CombinedActions[i].DisplayOp = Eigen::Vector3f(0, 0, 0);
+        break;
+      }
+      CombinedActions[i].VecOp = CombinedActions[i].DisplayOp;
+    }
+    std::string label = "##action" + std::to_string(n) + std::to_string(i);
+    switch (CombinedActions[i].action_type) {
+    case 0:
+      // fold
+      if (ImGui::DragFloat3(label.data(), CombinedActions[i].DisplayOp.data(), 0.01f, -1.f, 1.f, "%.2f"))
+      {
+        something_changed = true;
+        CombinedActions[i].VecOp = CombinedActions[i].DisplayOp.normalized();
+      }
+      if (ImGui::DragFloat3(("fold_color" + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].Color.data(), 0.01f, 0.f, 1.f, "%.2f"))
+      {
+        something_changed = true;
+      }
+      break;
+    case 1:
+      //rotation
+      if (ImGui::DragFloat3(label.data(), CombinedActions[i].DisplayOp.data(), 0.1f, -180, 180.f, "%.1f"))
+      {
+        something_changed = true;
+        CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
+      }
+      break;
+    case 2:
+      //scale
+      something_changed |= ImGui::DragFloat3(label.data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
+      break;
+    case 3:
+      //translation
+      something_changed |= ImGui::DragFloat3(label.data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
+      break;
+    }
+    if (ImGui::Button((std::string("+##") + std::to_string(n) + std::to_string(i)).data()))
+    {
+      something_changed = true;
+      //insert new operation
+      CombinedActions.insert(CombinedActions.begin() + i, CombinedActions[i]);
+      if (CombinedActions[i].action_type == 0)
+      {
+        GenColors();
+      }
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button((std::string("X##") + std::to_string(n) + std::to_string(i)).data()))
+    {
+      something_changed = true;
+      //delete this operation
+      CombinedActions.erase(CombinedActions.begin() + i);
+      if (CombinedActions[i].action_type == 0)
+      {
+        GenColors();
+      }
+    }
+  }
+  return something_changed;
+}
+
 float Fractal::DE_Sphere(Eigen::Vector3f p)
 {
   Eigen::Vector3f floored(std::fmod(p.x(), 1.f) - 0.5f, std::fmod(p.y(), 1.f) - 0.5f, p.z());
-  
+
   return floored.norm() - Scale;
 }
 
 const float bailout_dist = 1000;
 
 
-float Fractal::DE_Triangle(Eigen::Vector3f _z)
-{
-  Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
-  float r = z.squaredNorm();
-  int i = 0;
-  for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
-  {
-    z = transform_rot1._transformVector(z);
-    if (z.x() + z.y() < 0) z = Eigen::Vector3f(-z.y(), -z.x(), z.z());
-    if (z.x() + z.z() < 0) z = Eigen::Vector3f(-z.z(), z.y(), -z.x());
-    if (z.y() + z.z() < 0) z = Eigen::Vector3f(z.x(), -z.z(), -z.y());
-
-    z = transform_rot2._transformVector(z);
-
-    z = Scale * z - Eigen::Vector3f::Ones() * (Scale - 1.f);
-    r = z.squaredNorm();
-  }
-  return (std::sqrt(r) - 2.f) * std::pow(Scale, -i);
-}
-
-
 float Fractal::DE_Generic(Eigen::Vector3f _z)
 {
-  //Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
-  Eigen::Vector3f z = _z;
+  Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
+  //Eigen::Vector3f z = _z;
   float r = z.squaredNorm();
   int i = 0;
   for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
   {
-    int fold_index = 0;
-    int rotate_index = 0;
-    int scale_index = 0;
-    int translate_index = 0;
-    for (int i = 0; i < ActionIndexes.size(); i++)
+    for (int i = 0; i < CombinedActions.size(); i++)
     {
-      switch(ActionIndexes[i])
-        {
-        case 0: // fold
-          Action_Fold(z, fold_index++);
-          break;
-        case 1: //rotation
-          Action_Rotate(z, rotate_index++);
-          break;
-        case 2: //scale
-          Action_Scale(z, scale_index++);
-          break;
-        case 3: //translation
-          Action_Translate(z, translate_index++);
-          break;
-        }
+      switch (CombinedActions[i].action_type)
+      {
+      case 0: // fold
+        Action_Fold(z, i);
+        break;
+      case 1: //rotation
+        Action_Rotate(z, i);
+        break;
+      case 2: //scale
+        Action_Scale(z, i);
+        break;
+      case 3: //translation
+        Action_Translate(z, i);
+        break;
+      }
     }
 
-    //z = Scale * (z - Eigen::Vector3f::Ones()) + Eigen::Vector3f::Ones();
-    z = z * Scale - Center * (Scale - 1);
+    z = Scale * (z - Eigen::Vector3f::Ones()) + Eigen::Vector3f::Ones();
+    //z = z * Scale - Center * (Scale - 1);
     r = z.squaredNorm();
   }
 
-  return (std::sqrt(r)-2.f) * std::pow(Scale, -i);
+  return (std::sqrt(r) - 2.f) * std::pow(Scale, -i);
 }
 
 bool Fractal::Action_Fold_Color(Eigen::Vector3f &p, int fold_index)
 {
-  float dot = p.dot(Folds[fold_index]);
+  float dot = p.dot(CombinedActions[fold_index].VecOp);
   if (dot < 0)
   {
-    p -= dot * Folds_2[fold_index];
+    p -= dot * CombinedActions[fold_index].VecOp2;
     return true;
   }
   return false;
@@ -333,24 +441,24 @@ bool Fractal::Action_Fold_Color(Eigen::Vector3f &p, int fold_index)
 
 void Fractal::Action_Fold(Eigen::Vector3f &p, int fold_index)
 {
-  float dot = p.dot(Folds[fold_index]);
+  float dot = p.dot(CombinedActions[fold_index].VecOp);
   if (dot < 0)
-    p -= dot * Folds_2[fold_index];
+    p -= dot * CombinedActions[fold_index].VecOp2;
 }
 
 void Fractal::Action_Rotate(Eigen::Vector3f &p, int rot_index)
 {
-  p = Rotations[rot_index]._transformVector(p);
+  p = CombinedActions[rot_index].QuatOp._transformVector(p);
 }
 
 void Fractal::Action_Scale(Eigen::Vector3f &p, int scale_index)
 {
-  p = p.cwiseProduct(Scales[scale_index]);
+  p = p.cwiseProduct(CombinedActions[scale_index].VecOp);
 }
 
 void Fractal::Action_Translate(Eigen::Vector3f &p, int trans_index)
 {
-  p = p + Translates[trans_index];
+  p = p + CombinedActions[trans_index].VecOp;
 }
 
 Eigen::Vector3f Fractal::GridColor(Eigen::Vector3f p)
@@ -368,29 +476,6 @@ Eigen::Vector3f Fractal::FlatColor(Eigen::Vector3f p)
   return this->material->Kd;
 }
 
-Eigen::Vector3f Fractal::TriColor(Eigen::Vector3f _z)
-{
-  Eigen::Vector3f c(Eigen::Vector3f::Ones());
-  Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
-  float r = z.squaredNorm();
-  int i = 0;
-  float w = 1;
-  for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
-  {
-    z = transform_rot1._transformVector(z);
-    if (z.x() + z.y() < 0) { z = Eigen::Vector3f(-z.y(), -z.x(),  z.z()); c = Eigen::Vector3f(0,0,1) * w + c * (1-w); };
-    if (z.x() + z.z() < 0) { z = Eigen::Vector3f(-z.z(),  z.y(), -z.x()); c = Eigen::Vector3f(0,1,0) * w + c * (1-w); };
-    if (z.y() + z.z() < 0) { z = Eigen::Vector3f( z.x(), -z.z(), -z.y()); c = Eigen::Vector3f(1,0,0) * w + c * (1-w); };
-
-    w *= 0.5f;
-    z = transform_rot2._transformVector(z);
-
-    z = Scale * z - Eigen::Vector3f::Ones() * (Scale - 1.f);
-    r = z.squaredNorm();
-  }
-  return c;
-}
-
 
 Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
 {
@@ -401,26 +486,22 @@ Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
   float w = 1;
   for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
   {
-    int fold_index = 0;
-    int rotate_index = 0;
-    int scale_index = 0;
-    int translate_index = 0;
-    for (int action_num = 0; action_num < ActionIndexes.size(); action_num++)
+    for (int action_num = 0; action_num < CombinedActions.size(); action_num++)
     {
-      switch (ActionIndexes[action_num])
+      switch (CombinedActions[action_num].action_type)
       {
       case 0: // fold
-        if (Action_Fold_Color(z, fold_index++))
-          c = (1 - w) * c + w * Colors[ActionToColor[action_num]];
+        if (Action_Fold_Color(z, action_num))
+          c = (1 - w) * c + w * CombinedActions[action_num].Color;
         break;
       case 1: //rotation
-        Action_Rotate(z, rotate_index++);
+        Action_Rotate(z, action_num);
         break;
       case 2: //scale
-        Action_Scale(z, scale_index++);
+        Action_Scale(z, action_num);
         break;
       case 3: //translation
-        Action_Translate(z, translate_index++);
+        Action_Translate(z, action_num);
         break;
       }
     }
@@ -435,17 +516,28 @@ Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
   return c;
 }
 
+int Fractal::NumFolds()
+{
+  int ret = 0;
+  for each (auto a in CombinedActions)
+    if (a.action_type == 0)
+      ret++;
+  return ret;
+}
+
 void Fractal::GenColors()
 {
-  Colors.reserve(num_folds);
-  for (int i = 0; i < num_folds; i++)
+  int num_folds = NumFolds();
+  int current_color = 0;
+  for (int i = 0; i < CombinedActions.size(); i++)
   {
-    float val = static_cast<float>(i) / static_cast<float>(num_folds);
-    Colors.push_back(ColorFromFloat(val));
-  }
-  for (int i = 0; i < Folds.size(); i++)
-  {
-    Folds_2.push_back(Folds[i] * 2.f);
+    if (CombinedActions[i].action_type == 0)
+    {
+      float val = static_cast<float>(current_color) / static_cast<float>(num_folds);
+      CombinedActions[i].Color = ColorFromFloat(val);
+      current_color++;
+      CombinedActions[i].VecOp2 = 2 * CombinedActions[i].VecOp;
+    }
   }
 }
 
@@ -456,4 +548,17 @@ Eigen::Vector3f Fractal::ColorFromFloat(float val)
   float b = std::sin(pi_2 * (val + 0.66666666f)) * 0.5 + 0.5;
   Eigen::Vector3f ret(r, g, b);
   return ret;
+}
+
+bool Shape::RenderGenericGUI(int shape_num)
+{
+  bool something_changed = false;
+  if (ImGui::CollapsingHeader(name.data())) {
+    ImGui::Indent(10.f);
+    something_changed |= material->RenderGUI(shape_num);
+    something_changed |= ImGui::InputFloat3((std::string("position") + std::to_string(shape_num)).data(), Position.data());
+    something_changed |= this->RenderGUI(shape_num);
+    ImGui::Unindent(10.f);
+  }
+  return something_changed;
 }

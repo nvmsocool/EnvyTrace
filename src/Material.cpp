@@ -1,4 +1,5 @@
 #include "Material.h"
+#include "imgui.h"
 
 float Material::D(Eigen::Vector3f h, Eigen::Vector3f N)
 {
@@ -8,7 +9,7 @@ float Material::D(Eigen::Vector3f h, Eigen::Vector3f N)
     return 0;
   float tan_theta = std::sqrt(1 - h_N * h_N) / h_N;
   float denom = (PI * std::pow(h_N, 4) * std::pow(a_2 + tan_theta * tan_theta, 2));
-  if (denom == 0)
+  if (denom < 0.001f)
     return 1.f;
   return Charictaristic(h_N) * a_2 / denom;
 }
@@ -36,4 +37,19 @@ float Material::G_1(Eigen::Vector3f w, Eigen::Vector3f h, Eigen::Vector3f N)
     return 0.f;
   float g = Charictaristic(w.dot(h) / w_N) * 2 / (1 + std::sqrt(1 + alpha * alpha * tan_theta * tan_theta));
   return g;
+}
+
+bool Light::RenderGUI(int shape_num)
+{
+  bool something_changed = false;
+
+  if (ImGui::CollapsingHeader("light material"))
+  {
+    ImGui::Indent(10.f);
+    something_changed |= ImGui::DragFloat3((std::string("light val##") + std::to_string(shape_num)).data(), light_value.data(), 0.1f, 0, 1000000, "%.1f");
+    something_changed |= Material::RenderGUI(shape_num);
+    ImGui::Unindent(10.f);
+  }
+
+  return something_changed;
 }

@@ -5,6 +5,7 @@
 #include <functional>
 #include "Eulers.h"
 #include <list>
+#include "imgui.h"
 
 class Material;
 
@@ -17,10 +18,17 @@ public:
   //TODO: write this for all shapes
   virtual void GetRandomPointOn(Intersection &I) {};
 
+  virtual bool RenderGUI(int shape_num) = 0;
+
+  bool RenderGenericGUI(int shape_num);
+
+  virtual std::string Serialize() { return ""; };
+
   Material *material;
   Eigen::AlignedBox<float, 3> BoundingBox;
   Eigen::Vector3f Position;
   float SurfaceArea;
+  std::string name;
 
 };
 
@@ -39,10 +47,14 @@ public:
     );
     this->Position = Center;
     this->SurfaceArea = 4 * 3.14159 * Radius * Radius;
+    this->name = "Sphere";
   };
   ~Sphere() {};
   void Intersect(const Ray &in, Intersection &i);
   void GetRandomPointOn(Intersection &I);
+  bool RenderGUI(int i) { 
+    return ImGui::InputFloat((std::string("radius##")+std::to_string(i)).data(), &Radius); 
+  };
 
   float Radius;
   Eigen::Vector3f Center;
@@ -67,9 +79,11 @@ public:
       2 * extents.x() * extents.y() +
       2 * extents.x() * extents.z() +
       2 * extents.y() * extents.z();
+    this->name = "box";
   };
   ~Box() {};
   void Intersect(const Ray &in, Intersection &i);
+  bool RenderGUI(int i) { return false; };
 
   Eigen::Vector3f n_x, n_y, n_z;
   Eigen::Vector3f base, extents;
@@ -84,6 +98,7 @@ public:
     : p1(_p1), p2(_p2), p3(_p3)
     , e1(p2 - p1), e2(p3 - p1)
   {
+    this->name = "Triangle";
     Eigen::Vector3f flatNorm = e2.cross(e1).normalized();
     n1 = flatNorm;
     n2 = flatNorm;
@@ -106,6 +121,8 @@ public:
   };
   ~Triangle() {};
   void Intersect(const Ray &in, Intersection &i);
+  bool RenderGUI(int i) { return false;
+  };
   inline void SetNormals(Eigen::Vector3f _n1, Eigen::Vector3f _n2, Eigen::Vector3f _n3)
   {
     n1 = _n1.normalized();
@@ -134,6 +151,7 @@ public:
   , radius(_radius)
   {
     this->material = m;
+    this->name = "Cylinder";
 
     Eigen::Vector3f minB = Base + Eigen::Vector3f::Ones() * _radius;
     Eigen::Vector3f maxB = Base - Eigen::Vector3f::Ones() * _radius;
@@ -158,6 +176,7 @@ public:
   };
   ~Cylinder() {};
   void Intersect(const Ray &in, Intersection &i);
+  bool RenderGUI(int i) { return false; };
 
   Eigen::Vector3f Base, Axis;
   float radius;
@@ -171,6 +190,7 @@ public:
   Fractal() {};
   Fractal(float _Scale, Eigen::Vector3f _Center, Eigen::Quaternionf _rot, Material *m)
   {
+    this->name = "Fractal";
     this->material = m;
     Scale = _Scale;
     Center = _Center;
@@ -179,48 +199,43 @@ public:
       Center + Eigen::Vector3f::Ones() * Scale * 10
       );
     this->Position = Center;
+    rot_eulers = QuatToEuler(_rot);
     rot = _rot;
     rot_inv = rot.inverse();
-    transform_rot1 = EulerToQuat(Eigen::Vector3f(0, 0, 15));
-    transform_rot1 = EulerToQuat(Eigen::Vector3f(0, 0, 15));
   };
   ~Fractal() {};
   void Intersect(const Ray &in, Intersection &i);
-  inline void SetTrans(Eigen::Quaternionf r1, Eigen::Quaternionf r2)
-  {
-    transform_rot1 = r1;
-    transform_rot2 = r2;
-  }
   inline void SetRecursionProperties(int _max_iteration, int _subdivisions, float _min_dist) {
     max_iteration = _max_iteration;
     min_distance = _min_dist;
     num_subdivisions = _subdivisions;
   }
+  bool RenderGUI(int i);
   int max_iteration{ 100 };
   float min_distance{ 0.001f };
   int num_subdivisions{ 11 };
-  int num_folds{ 0 };
 
   float Scale;
-  Eigen::Vector3f Center;
+  Eigen::Vector3f Center, rot_eulers;
   Eigen::Quaternionf rot, rot_inv;
-  Eigen::Quaternionf transform_rot1, transform_rot2;
 
   Eigen::Vector3f lum{ Eigen::Vector3f(0.2126f, 0.7152f, 0.0722f) };
 
+  struct ActionData {
+    int action_type;
+    Eigen::Vector3f DisplayOp, VecOp, VecOp2, Color;
+    Eigen::Quaternionf QuatOp;
+  };
 
-  std::vector<int> ActionIndexes;
+  std::vector<ActionData> CombinedActions;
 
   std::function<float(Eigen::Vector3f)> ActiveDE;
   std::function<Eigen::Vector3f(Eigen::Vector3f)> ActiveColor;
 
-  std::vector<Eigen::Vector3f> Folds;
-  std::vector<Eigen::Vector3f> Folds_2;
-  std::vector<Eigen::Quaternionf> Rotations;
-  std::vector<Eigen::Vector3f> Scales;
-  std::vector<Eigen::Vector3f> Translates;
-  std::vector<Eigen::Vector3f> Colors;
-  std::vector<int> ActionToColor;
+  float color_it_scale = 3;
+  float color_it_add = 0.0;
+  float color_it_fold_ratio = 0.5;
+  float color_it_intensity = 0.0;
 
   void Action_Fold(Eigen::Vector3f &p, int index);
   bool Action_Fold_Color(Eigen::Vector3f &p, int index);
@@ -229,13 +244,13 @@ public:
   void Action_Translate(Eigen::Vector3f &p, int index);
 
   float DE_Sphere(Eigen::Vector3f p);
-  float DE_Triangle(Eigen::Vector3f p);
   float DE_Generic(Eigen::Vector3f p);
 
   Eigen::Vector3f GridColor(Eigen::Vector3f p);
   Eigen::Vector3f FlatColor(Eigen::Vector3f p);
-  Eigen::Vector3f TriColor(Eigen::Vector3f p);
   Eigen::Vector3f FoldBased(Eigen::Vector3f p);
+
+  int NumFolds();
 
   void GenColors();
   Eigen::Vector3f ColorFromFloat(float f);

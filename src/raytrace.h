@@ -10,6 +10,7 @@ class Shape;
 #include "Shape.h";
 #include "Minimizer.h"
 #include "Intersection.h"
+#include "ImageData.h"
 
 //const float PI = 3.14159f;
 
@@ -48,7 +49,8 @@ class Realtime;
 
 class Scene {
 public:
-    int width, height;
+    int requested_width, requested_height;
+    int gui_width{ 300 };
     Realtime *realtime{ nullptr };         // Remove this (realtime stuff)
     Material* currentMat;
     Camera camera;
@@ -60,17 +62,14 @@ public:
     std::vector<Cylinder> cylinders;
     std::vector<Fractal> fractals;
 
-    std::vector<std::vector<Color>> unique_pixels;
-    std::vector<std::vector<Eigen::Vector3f>> ray_directions;
-    std::vector<float> exact_unique_pixel_counts;
-    std::vector<std::vector<int>> unique_indexes;
-
     std::vector<Material> materials;
     std::vector<Light> lights;
 
     KdBVH<float, 3, Shape *> Tree;
-    bool depth_of_field;
+    bool depth_of_field{ false };
+    bool use_AA{ true };
     bool first_load{ true };
+    bool halfDome{ false };
 
     enum DEBUG_MODE
     {
@@ -88,7 +87,7 @@ public:
     Scene();
     void Finit();
     void ClearAll();
-    void ReCalcDirs();
+    // void ReCalcDirs();
 
     // The scene reader-parser will call the Command method with the
     // contents of each line in the scene file.
@@ -104,11 +103,7 @@ public:
 
     // The main program will call the TraceImage method to generate
     // and return the image.  This is the Ray Tracer!
-    float TraceImage(std::vector<Color> &image, const int pass, bool update_pass);
-
-    // The main program will call the TraceImage method to generate
-    // and return the image.  This is the Ray Tracer!
-    float TraceHalfDome(std::vector<Color> &image, const int pass, bool update_pass);
+    float TraceImage(ImageData &id, bool update_pass, int n_threads);
 
     // Generates objects from mesh file
     void GenTris(MeshData *md);
@@ -120,16 +115,18 @@ public:
       camera.Rotate(r);
     };
     inline void ChangeFOV(float w, float f) {
-      camera.ChangeFOV(w, f);
+      camera.ChangeView(w, f);
     };
 
-    void SetRayDirect(Ray &r, int x, int y);
-    void SetRayAA(Ray &r, int x, int y);
-    void SetRayDOF(Ray &r, int x, int y);
+    void SetRayDirect(ImageData &id, Ray &r, int x, int y);
+    void SetRayAA(ImageData &id, Ray &r, int x, int y);
+    void SetRayDOF(ImageData &id, Ray &r, int x, int y);
+    void SetRayHalfDome(ImageData &id, Ray &r, int x, int y);
 
     Color BVHTracePath(Ray &r, Minimizer &minimizer, bool option);
     Color BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE m);
     void SampleLight(Intersection &I);
+    Eigen::Vector3f GetBeers(const float t, Eigen::Vector3f Kt);
     Eigen::Vector3f EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s);
     float PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s);
     Eigen::Vector3f EvalRadiance(Intersection &Q);
@@ -138,5 +135,6 @@ public:
     float PdfLight(Shape *L);
     float GeometryFactor(Intersection &P, Intersection &L);
     Intersection &FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction);
+
 
 };

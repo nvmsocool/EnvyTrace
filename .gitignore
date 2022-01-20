@@ -352,3 +352,6 @@ MigrationBackup/
 renders
 *.hdr
 *.scn
+*.bmp
+
+imgui.ini

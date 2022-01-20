@@ -43,97 +43,38 @@ void Scene::Finit()
 {
   std::srand(1234567);
 
-  for (int i = 0; i < 1000; i++)
-  {
-    float rr = 1 - randf() * randf();
-    float rg = 1 - randf() * randf();
-    float rb = 1 - randf() * randf();
-    //currentMat = new Material(Vector3f(rr, rg, rb), Vector3f(rr, rg, rb), 1);
-    float rx = randf() * 6.f - 3.f;
-    float ry = randf() * 6.f - 3.f;
-    float rz = randf() * 6.f - 3.f;
-    //objects.push_back(new Sphere(0.03f, Vector3f(rx, ry, rz), currentMat));
-  }
-
   objects_p.clear();
   lights_p.clear();
   for (int i = 0; i < spheres.size(); i++)
+  {
     objects_p.push_back(static_cast<Shape *>(&(spheres[i])));
-  for (int i = 0; i < boxes.size(); i++ )
+    spheres[i].name += std::to_string(i);
+  }
+  for (int i = 0; i < boxes.size(); i++)
+  {
     objects_p.push_back(&(boxes[i]));
+    boxes[i].name += std::to_string(i);
+  }
   for (int i = 0; i < triangles.size(); i++)
+  {
     objects_p.push_back(&(triangles[i]));
+    triangles[i].name += std::to_string(i);
+  }
   for (int i = 0; i < cylinders.size(); i++)
+  {
     objects_p.push_back(&(cylinders[i]));
+    cylinders[i].name += std::to_string(i);
+  }
   for (int i = 0; i < fractals.size(); i++)
   {
     fractals[i].GenColors();
     objects_p.push_back(&(fractals[i]));
+    fractals[i].name += std::to_string(i);
   }
   for (int i = 0; i < objects_p.size(); i++)
     if (objects_p[i]->material->isLight())
       lights_p.push_back(objects_p[i]);
-
   Tree = KdBVH<float, 3, Shape *>(objects_p.begin(), objects_p.end());
-
-  for (size_t i = 0; i < unique_pixels.size(); i++)
-  {
-    unique_pixels[i].clear();
-    ray_directions[i].clear();
-    unique_indexes[i].clear();
-  }
-
-  unique_pixels.clear();
-  ray_directions.clear();
-  exact_unique_pixel_counts.clear();
-  unique_indexes.clear();
-
-  unique_pixels.resize(height);
-  ray_directions.resize(height);
-  exact_unique_pixel_counts.resize(height);
-  unique_indexes.resize(height);
-
-  float even_half = height % 2 == 0 ? height / 2.f - 1.f : (height - 1.f) / 2.f;
-  for (int i = 0; i < height; i++)
-  {
-    float a = std::floor(std::abs(i - (height - 1.f) / 2.f));
-    float b = a / even_half;
-    float c = std::sqrt(1 - b * b);
-    float d = c * (width - 1) + 1;
-    unique_pixels[i].resize(std::floor(d));
-    ray_directions[i].resize(std::floor(d));
-    unique_indexes[i].resize(width);
-    exact_unique_pixel_counts[i] = d;
-
-    for (int j = 0; j < width; j++)
-    {
-      unique_indexes[i][j] = (std::min)(static_cast<int>(std::floor(j * exact_unique_pixel_counts[i] / static_cast<float>(width))), static_cast<int>(unique_pixels[i].size()-1));
-    }
-
-  }
-
-  ReCalcDirs();
-
-}
-
-
-void Scene::ReCalcDirs()
-{
-  for (int i = 0; i < height; i++)
-  {
-    for (int j = 0; j < unique_pixels[i].size(); j++)
-    {
-      //degrees in from x axis
-      float theta = (2.f * j + 1.f) * pi / static_cast<float>(2 * unique_pixels[i].size()) - (pi / 2);
-      //degrees down from y axis
-      float phi = (pi * i / height) - (pi / 2);
-
-      Eigen::Quaternionf rot =
-        Eigen::AngleAxisf(phi, camera.rotation._transformVector(Eigen::Vector3f::UnitX()))
-        * Eigen::AngleAxisf(theta, camera.rotation._transformVector(Eigen::Vector3f::UnitY()));
-      ray_directions[i][j] = rot._transformVector(camera.ViewZ).normalized();
-    }
-  }
 }
 
 void Scene::triangleMesh(MeshData *mesh)
@@ -165,6 +106,25 @@ Quaternionf Orientation(int i,
     }
   }
   return q;
+}
+
+bool Material::RenderGUI(int shape_num)
+{
+  bool something_changed = false;
+
+  if (ImGui::CollapsingHeader("material"))
+  {
+    ImGui::Indent(10.f);
+    something_changed |= ImGui::SliderFloat3((std::string("Kd##") + std::to_string(shape_num)).data(), Kd.data(), 0, 1, "%.2f");
+    something_changed |= ImGui::SliderFloat3((std::string("Ks##") + std::to_string(shape_num)).data(), Ks.data(), 0, 1, "%.2f");
+    something_changed |= ImGui::SliderFloat3((std::string("Kt##") + std::to_string(shape_num)).data(), Kt.data(), 0, 1, "%.2f");
+
+    something_changed |= ImGui::DragFloat((std::string("alpha##") + std::to_string(shape_num)).data(), &alpha, 0.01f, 0, 10000, "%.2f");
+    something_changed |= ImGui::SliderFloat((std::string("specularity##") + std::to_string(shape_num)).data(), &specularity, 0, 1, "%.2f");
+    ImGui::Unindent(10.f);
+  }
+
+  return something_changed;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -200,17 +160,17 @@ void Scene::Command(const std::vector<std::string> &strings,
     // syntax: screen width height
     if (first_load)
     {
-      realtime = new Realtime(int(f[1]), int(f[2]));
-      realtime->setScreen(int(f[1]), int(f[2]));
-      width = int(f[1]);
-      height = int(f[2]);
+      realtime = new Realtime(int(f[1]) + gui_width, int(f[2]));
+      realtime->setScreen(int(f[1]) + gui_width, int(f[2]));
+      requested_width = int(f[1]);
+      requested_height = int(f[2]);
       first_load = false;
     }
-    else if (width != f[1] || height != f[2])
+    else if (requested_width != f[1] || requested_height != f[2])
     {
-      width = int(f[1]);
-      height = int(f[2]);
-      realtime->RequestResize(width, height);
+      requested_width = int(f[1]);
+      requested_height = int(f[2]);
+      realtime->RequestResize(requested_width + gui_width, requested_height);
 
     }
   }
@@ -224,7 +184,7 @@ void Scene::Command(const std::vector<std::string> &strings,
       Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
 
       //realtime->setCamera(Vector3f(f[1], f[2], f[3]), Orientation(5, strings, f), f[4]);
-      camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], width, height, f[8], f[9]);
+      camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], requested_width, requested_height, f[8], f[9]);
     }
     camera.w = f[8];
     camera.f = f[9];
@@ -236,7 +196,10 @@ void Scene::Command(const std::vector<std::string> &strings,
     // First rgb is Diffuse reflection, second is specular reflection.
     // third is beer's law transmission followed by index of refraction.
     // Creates a Material instance to be picked up by successive shapes
-    materials.push_back(Material(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7]));
+    if (f.size() >= 14)
+      materials.push_back(Material(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], f[8], Vector3f(f[9], f[10], f[11]), f[12], f[13]));
+    else
+      materials.push_back(Material(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], f[8]));
     currentMat = &(materials[materials.size() - 1]);
   }
 
@@ -290,34 +253,24 @@ void Scene::Command(const std::vector<std::string> &strings,
     int current_index = 11;
     while (current_index < f.size())
     {
-      switch (static_cast<int>(f[current_index]))
+
+      Fractal::ActionData actionData;
+      actionData.action_type = static_cast<int>(f[current_index]);
+      actionData.DisplayOp = Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]);
+      switch (actionData.action_type)
       {
       case 0: // fold
-        fr->Folds.push_back(Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]).normalized());
-        current_index += 4;
-        fr->ActionToColor.push_back(fr->num_folds);
-        fr->num_folds++;
-        fr->ActionIndexes.push_back(0);
+        actionData.VecOp = actionData.DisplayOp.normalized();
         break;
       case 1: //rotation
-        fr->Rotations.push_back(EulerToQuat(Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3])));
-        current_index += 4;
-        fr->ActionToColor.push_back(0);
-        fr->ActionIndexes.push_back(1);
+        actionData.QuatOp = EulerToQuat(actionData.DisplayOp);
         break;
-      case 2: //scale
-        fr->Scales.push_back(Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]));
-        current_index += 4;
-        fr->ActionToColor.push_back(0);
-        fr->ActionIndexes.push_back(2);
-        break;
-      case 3: //translation
-        fr->Translates.push_back(Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]));
-        current_index += 4;
-        fr->ActionToColor.push_back(0);
-        fr->ActionIndexes.push_back(3);
+      default: //scale + translation
+        actionData.VecOp = actionData.DisplayOp;
         break;
       }
+      current_index += 4;
+      fr->CombinedActions.push_back(actionData);
     }
   }
 
@@ -329,133 +282,52 @@ void Scene::Command(const std::vector<std::string> &strings,
   }
 }
 
-std::chrono::steady_clock::time_point prior, current;
 
-void tick(std::string msg, bool report = false)
+float Scene::TraceImage(ImageData &id, bool update_pass, int n_threads)
 {
-  current = std::chrono::high_resolution_clock::now();
-  float micro = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(current - prior).count());
-  if (report)
-  {
-    std::cout << msg << " @ " << micro / 1000000.f << " s/render" << std::endl;
-  }
-  prior = current;
-}
-
-
-float Scene::TraceImage(std::vector<Color> &image, const int pass, bool update_pass)
-{
-  if (update_pass)
-    tick("start");
 
   float diff = 0;
-  float weight = 1.f / static_cast<float>(pass);
+  float weight = 1.f / static_cast<float>(id.trace_num);
 
-#pragma omp parallel for schedule(dynamic, 1) // Magic: Multi-thread y loop
-  for (int y = 0; y < height; y++) {
+#pragma omp parallel for schedule(dynamic, 1) num_threads(n_threads)  // Magic: Multi-thread y loop
+  for (int y = 0; y < id.h; y++) {
 
     Ray r(Eigen::Vector3f::Ones(), Eigen::Vector3f::Ones());
     Minimizer minimizer(r);
-    int y_add = y * width;
+    int y_add = y * id.w;
 
-    for (int x = 0; x < width; x++) {
-      if (depth_of_field)
-        SetRayDOF(r, x, y);
+    for (int x = 0; x < id.w; x++) {
+      if (halfDome)
+        SetRayHalfDome(id, r, x, y);
+      else if (depth_of_field)
+        SetRayDOF(id, r, x, y);
+      else if (use_AA)
+        SetRayAA(id, r, x, y);
       else
-        SetRayAA(r, x, y);
+        SetRayDirect(id, r, x, y);
 
       int pos = y_add + x;
-      Color old = image[pos];
+      Color old = id.data[pos];
       if (DefaultMode == Scene::DEBUG_MODE::NONE)
-        image[pos] = (1 - weight) * old + weight * BVHTracePath(r, minimizer, false);
+        id.data[pos] = (1 - weight) * old + weight * BVHTracePath(r, minimizer, false);
       else
-        image[pos] = (1 - weight) * old + weight * BVHTraceDebug(r, minimizer, DefaultMode);
+        id.data[pos] = (1 - weight) * old + weight * BVHTraceDebug(r, minimizer, DefaultMode);
 
       if (update_pass)
-        diff += std::abs(old.x() - image[pos].x()) + std::abs(old.y() - image[pos].y()) + std::abs(old.z() - image[pos].z());
-      
+        diff += std::abs(old.x() - id.data[pos].x()) + std::abs(old.y() - id.data[pos].y()) + std::abs(old.z() - id.data[pos].z());
     }
   }
 
-  diff /= width * height;
+
+  id.trace_num++;
 
   if (update_pass)
   {
-    tick("Convergence: " + std::to_string(diff), true);
+    diff /= id.data.size();
     return diff;
   }
   return 1;
 
-}
-
-
-float Scene::TraceHalfDome(std::vector<Color> &image, const int pass, bool update_pass)
-{
-  if (update_pass)
-    tick("start");
-
-  float diff = 0;
-  float weight = 1.f / static_cast<float>(pass);
-
-
-
-#pragma omp parallel for schedule(dynamic, 1) // Magic: Multi-thread y loop
-  for (int y = 0; y < height; y++) {
-
-    Ray r(camera.position, Eigen::Vector3f::Ones());
-    Minimizer minimizer(r);
-
-    int y_add = y * width;
-
-    int halfway = width / 2;
-    for (int x = 0; x < width; x++) {
-
-      //create ray in that direction
-      //r.direction = ray_directions[y][x];
-      float theta = pi * (y + randf()) / height;
-      float z_d = std::cos(theta);
-      float sinTheta = std::sin(theta);
-      float phi;
-      if (x < halfway)
-      {
-        r.origin = camera.position;
-        phi = pi * ((2.f * x) + 0.5f) / width;
-      }
-      else
-      {
-        r.origin = camera.position - camera.rotation._transformVector(Eigen::Vector3f(0.035, 0, 0));
-        phi = pi * (2.f * (x- halfway) + randf()) / width;
-      }
-      float x_d = sinTheta * std::cos(phi);
-      float y_d = sinTheta * std::sin(phi);
-      r.direction = camera.rotation._transformVector(Eigen::Vector3f(x_d, y_d, z_d)).normalized();
-
-      //move it a bit for AA
-
-      int pos = y_add + x;
-      Color old = image[pos];
-      Color new_color;
-      if (DefaultMode == Scene::DEBUG_MODE::NONE)
-        new_color = BVHTracePath(r, minimizer, false);
-      else
-        new_color = BVHTraceDebug(r, minimizer, DefaultMode);
-
-      image[pos] = (1 - weight) * old + weight * new_color;
-
-      if (update_pass)
-        diff += std::abs(old.x() - image[pos].x()) + std::abs(old.y() - image[pos].y()) + std::abs(old.z() - image[pos].z());
-
-    }
-  }
-
-  diff /= width * height;
-
-  if (update_pass)
-  {
-    tick("Convergence: " + std::to_string(diff), true);
-    return diff;
-  }
-  return 1;
 }
 
 void Scene::GenTris(MeshData *md)
@@ -469,38 +341,61 @@ void Scene::GenTris(MeshData *md)
   }
 }
 
-void Scene::SetRayDirect(Ray &r, int x, int y)
+void Scene::SetRayDirect(ImageData &id, Ray &r, int x, int y)
 {
-  float dy = 2 * (y + 0.5f) / height - 1;
-  float dx = 2 * (x + 0.5f) / width - 1;
+  float dy = 2 * (y + 0.5f) / id.h - 1;
+  float dx = 2 * (x + 0.5f) / id.w - 1;
 
   r.direction = (dx * camera.ViewX + dy * camera.ViewY + camera.ViewZ).normalized();
   r.origin = camera.position;
 }
 
-void Scene::SetRayAA(Ray &r, int x, int y)
+void Scene::SetRayAA(ImageData &id, Ray &r, int x, int y)
 {
-  float dy = 2 * (y + randf()) / height - 1;
-  float dx = 2 * (x + randf()) / width - 1;
+  float dy = 2 * (y + randf()) / id.h - 1;
+  float dx = 2 * (x + randf()) / id.w - 1;
 
   r.direction = (dx * camera.ViewX + dy * camera.ViewY + camera.ViewZ).normalized();
   r.origin = camera.position;
 }
 
-void Scene::SetRayDOF(Ray &r, int x, int y)
+void Scene::SetRayDOF(ImageData &id, Ray &r, int x, int y)
 {
-  float rad = camera.w * randf();
+  float rad = camera.w * std::sqrt(randf());
   float theta = pi_2 * randf();
   float dx = rad * std::cos(theta);
   float dy = rad * std::sin(theta);
   Eigen::Vector3f E = camera.position + dx * camera.ViewX + dy * camera.ViewY;
 
-  dy = 2 * (y + randf()) / height - 1;
-  dx = 2 * (x + randf()) / width - 1;
+  dy = 2 * (y + randf()) / id.h - 1;
+  dx = 2 * (x + randf()) / id.w - 1;
   Eigen::Vector3f P = camera.position + camera.f * dx * camera.ViewX + camera.f * dy * camera.ViewY + camera.f * camera.ViewZ;
 
   r.direction = (P - E).normalized();
   r.origin = E;
+}
+
+void Scene::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
+{
+  //create ray in that direction
+  int halfway = id.w / 2;
+  float theta = pi * (y + randf()) / id.h;
+  float z_d = std::cos(theta);
+  float sinTheta = std::sin(theta);
+  float phi;
+  if (x < halfway)
+  {
+    r.origin = camera.position;
+    phi = pi * ((2.f * x) + 0.5f) / id.w;
+  }
+  else
+  {
+    r.origin = camera.position - camera.rotation._transformVector(Eigen::Vector3f(0.035, 0, 0));
+    phi = pi * (2.f * (x - halfway) + randf()) / id.w;
+  }
+  float x_d = sinTheta * std::cos(phi);
+  float y_d = sinTheta * std::sin(phi);
+  r.direction = camera.rotation._transformVector(Eigen::Vector3f(x_d, y_d, z_d)).normalized();
 }
 
 Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
@@ -515,11 +410,18 @@ Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
     if (mode == DEBUG_MODE::SIMPLE)
     {
       for (auto l : lights_p) {
-        //color += (std::max)(0.0f, minimizer.closest_int.N.dot((l->Position - minimizer.closest_int.object->Position).normalized())) * (minimizer.closest_int.Kd.x() > 0 ? minimizer.closest_int.Kd : minimizer.closest_int.object->material->Kd);
-        Eigen::Vector3f w_o = -r.direction;
-        Intersection &i = minimizer.closest_int;
-        Eigen::Vector3f w_i = (l->Position - i.P).normalized();
-        color += static_cast<Light *>(l->material)->light_value.cwiseProduct(EvalScattering(w_o, i.N, w_i, i));
+
+        // VERY simple
+        //Eigen::Vector3f L = (l->Position - minimizer.closest_int.object->Position).normalized();
+        //float n_dot_l = minimizer.closest_int.N.dot(L);
+        //Eigen::Vector3f obj_color = minimizer.closest_int.Kd.x() > 0 ? minimizer.closest_int.Kd : minimizer.closest_int.object->material->Kd;
+        //color += (std::max)(0.0f, n_dot_l) * obj_color;
+
+         Eigen::Vector3f w_o = -r.direction;
+         Intersection &i = minimizer.closest_int;
+         Eigen::Vector3f w_i = (l->Position - i.P).normalized();
+         
+         color += static_cast<Light *>(l->material)->light_value.cwiseProduct(EvalScattering(w_o, i.N, w_i, i));
       }
     }
     else if (mode == DEBUG_MODE::NORMAL)
@@ -546,12 +448,12 @@ Intersection &Scene::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
 
 bool isNotValidVec(Eigen::Vector3f &v)
 {
-  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z());
+  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z()) || std::isinf(v.x()) || std::isinf(v.y()) || std::isinf(v.z());
 }
 
-bool isNotReasonableVec(Eigen::Vector3f &v)
+bool isNotReasonableVec(Eigen::Vector3f &v, float thresh)
 {
-  return std::abs(v.x()) > 10000 || std::abs(v.y()) > 10000 || std::abs(v.z()) > 10000;
+  return std::abs(v.x()) > thresh || std::abs(v.y()) > thresh || std::abs(v.z()) > thresh;
 }
 
 void PrintMe(Eigen::Vector3f vec, std::string msg)
@@ -587,6 +489,11 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 
   std::string log = "";
   bool build_log = true;
+#ifdef LOGGIN
+  log += "start path\n";
+  log += P.object->name;
+  log += " (<-name)\n";
+#endif
 
   while (randf() < RussianRoulette)
   {
@@ -595,6 +502,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 #endif
     // always starts here
     r.origin = P.P;
+    N = P.N;
 
 
 #ifdef LOGGIN
@@ -628,8 +536,10 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     Intersection &I = FireRayIntoScene(minimizer, w_i);
     if (I.object == L.object)
     {
+      float q = PdfBRDF(w_o, N, w_i, P);
+      float w_mis = std::pow(p, 2) / (std::pow(p, 2) + std::pow(q, 2));
       Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
-      color += 0.5f * weight.cwiseProduct(f).cwiseProduct(EvalRadiance(L)) / p;
+      color += 0.5f * w_mis * weight.cwiseProduct(f).cwiseProduct(EvalRadiance(L)) / p;
 
 #ifdef LOGGIN
         log += std::to_string(f.x());
@@ -650,7 +560,6 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 
 
     //extend path
-    N = P.N;
     w_i = SampleBRDF(w_o, N, P);
 
 #ifdef LOGGIN
@@ -671,6 +580,11 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
     p = PdfBRDF(w_o, N, w_i, P) * RussianRoulette;
 
+    if (p == 0)
+    {
+      int test = PdfBRDF(w_o, N, w_i, P);
+    }
+
 #ifdef LOGGIN
       log += std::to_string(f.x());
       log += ",";
@@ -680,6 +594,8 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
       log += "(<-implicit scattering)\n";
       log += std::to_string(p);
       log += " (<-implicit p)\n";
+      log += Q.object->name;
+      log += " (<-name)\n";
 #endif
 
     if (p < 0.0001f)
@@ -699,8 +615,10 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     //light connection
     if (Q.object->material->isLight())
     {
+      float q = PdfLight(Q.object) / GeometryFactor(P, Q);
+      float w_mis = std::pow(p, 2) / (std::pow(p, 2) + std::pow(q, 2));
       // after light
-      color += 0.5 * weight.cwiseProduct(EvalRadiance(Q));
+      color += 0.5 * w_mis * weight.cwiseProduct(EvalRadiance(Q));
 
 #ifdef LOGGIN
         log += std::to_string(color.x());
@@ -717,7 +635,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     w_o = -w_i;
   }
 
-  float mx = 1000.f;
+  float mx = 100.f;
   
   //cap color
   float max_channel = (std::max)(color.x(), (std::max)(color.y(), color.z()));
@@ -727,14 +645,19 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
   {
     std::cout << "Path Resulted in a NAN:" << std::endl;
   }
-  if (isNotReasonableVec(color))
+  if (isNotReasonableVec(color, 10000))
   {
     std::cout << "Path Resulted in a big value:" << std::endl;
   }
 
 #ifdef LOGGIN
-  if (isNotValidVec(color) || isNotReasonableVec(color))
+  if (isNotValidVec(color) || isNotReasonableVec(color, 10000))
     std::cout << log << std::endl;
+#endif
+
+#ifndef LOGGIN
+  if (isNotValidVec(color))
+    return Eigen::Vector3f::Zero();
 #endif
 
   return color;
@@ -746,12 +669,22 @@ void Scene::SampleLight(Intersection &I)
   lights_p[light_index]->GetRandomPointOn(I);
 }
 
+Eigen::Vector3f Scene::GetBeers(const float t, Eigen::Vector3f Kt)
+{
+  return Eigen::Vector3f(
+    std::exp(t * std::log(Kt.x())),
+    std::exp(t * std::log(Kt.y())),
+    std::exp(t * std::log(Kt.z()))
+  );
+}
+
 Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &i)
 {
   Eigen::Vector3f color = i.Kd.x() > 0 ? i.Kd : i.object->material->Kd;
   Eigen::Vector3f diffuse = color / pi;
   Eigen::Vector3f half = (w_o + w_i).normalized();
-  float N_w_i = (std::max)(0.0f, N.dot(w_i));
+
+  float N_w_i = std::abs(N.dot(w_i));
   Material *m = i.object->material;
   float denom = (4 * std::abs(w_i.dot(N)) * std::abs(w_o.dot(N)));
   Eigen::Vector3f ret;
@@ -771,9 +704,35 @@ Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, 
   }
 
   float D = m->D(half, N);
-  Eigen::Vector3f F = m->F(w_i.dot(half));
+  Eigen::Vector3f F = m->F(std::abs(w_i.dot(half)));
   float G = m->G(w_i, w_o, half, N);
   Eigen::Vector3f specular = (D * G * F) / denom;
+
+
+  /*
+  //transmissive color component
+  Eigen::Vector3f transmissive = specular;
+  Eigen::Vector3f trans_half = -(i.ior_out * w_i + i.ior_in * w_o).normalized();
+  float r = 1 - std::pow(i.ior_ratio, 2) * (1 - std::pow(w_o.dot(trans_half), 2));
+  if (r > 0)
+  {
+    D = m->D(trans_half, N);
+    F = m->F(std::abs(w_i.dot(trans_half)));
+    G = m->G(w_i, w_o, trans_half, N);
+    denom *= std::pow(i.ior_out * w_i.dot(trans_half) + i.ior_in * w_o.dot(trans_half), 2) / 4.0f;
+    if (denom == 0)
+    {
+      ret = N_w_i * (diffuse + specular);
+      return ret;
+    }
+    transmissive = D * G * (Eigen::Vector3f::Ones() - F) * std::abs(w_i.dot(trans_half)) * std::abs(w_o.dot(trans_half)) * std::pow(i.ior_out, 2) / denom;
+
+  }
+
+  if (w_o.dot(N) < 0)
+    transmissive = transmissive.cwiseProduct(GetBeers(i.t, m->Kt));
+  ret = N_w_i * (diffuse + specular + transmissive);
+    */
 
   ret = N_w_i * (diffuse + specular);
 
@@ -826,13 +785,53 @@ float Scene::PdfLight(Shape *L)
 float Scene::PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s)
 {
   float p_d = std::abs(N.dot(w_i)) / pi;
-  Eigen::Vector3f half = (w_o + w_i).normalized();
-  float denom = (4 * std::abs(w_i.dot(half)));
-  if (denom == 0)
-    return 0;
-  float p_s = s.object->material->D(half, N) * std::abs(half.dot(N)) / denom;
-  float a = s.object->material->alpha;
-  return a * p_d + (1 - a) * p_s;
+
+  float p_s = 0;
+  float specularity = s.object->material->specularity;
+  if (specularity > 0)
+  {
+    Eigen::Vector3f half = (w_o + w_i).normalized();
+    float denom = (4 * std::abs(w_i.dot(half)));
+    if (denom == 0)
+      return 0;
+    p_s = s.object->material->D(half, N) * std::abs(half.dot(N)) / denom;
+  }
+
+  /*
+  float p_t = p_s;
+  float translucency = s.object->material->translucency;
+  if (translucency > 0)
+  {
+    Eigen::Vector3f trans_half = -(s.ior_out * w_i + s.ior_in * w_o).normalized();
+    float r = 1.0 - std::pow(s.ior_ratio, 2) * (1.0 - std::pow(w_o.dot(trans_half), 2));
+    if (r > 0)
+    {
+      float denom = std::pow(s.ior_out * w_i.dot(trans_half) + s.ior_in * w_o.dot(trans_half), 2);
+      if (denom == 0)
+        return 0;
+      p_t = s.object->material->D(trans_half, N) * std::abs(trans_half.dot(N)) * std::pow(s.ior_out, 2) * std::abs(w_i.dot(trans_half)) / denom;
+    }
+    else
+    {
+      Eigen::Vector3f half = (w_o + w_i).normalized();
+      float denom = (4 * std::abs(w_i.dot(half)));
+      if (denom == 0)
+        return 0;
+      p_t = s.object->material->D(half, N) * std::abs(half.dot(N)) / denom;
+    }
+  }
+
+  float diffusness = 1.0f - (specularity + translucency);
+  float ret = diffusness * p_d + specularity * p_s + translucency * p_t;
+
+  */
+
+  float diffusness = 1.0f - (specularity);
+  float ret = diffusness * p_d + specularity * p_s;
+
+  if (std::isinf(ret))
+    ret = (std::numeric_limits<float>::max)();
+  return ret;
 }
 
 Eigen::Vector3f Scene::EvalRadiance(Intersection &Q)
@@ -844,18 +843,35 @@ Eigen::Vector3f Scene::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Inte
 {
   float r1 = randf();
   float r2 = randf();
-  float a = s.object->material->alpha;
-  if (randf() <= a)
+  float selector = randf();
+  float prob_spec = s.object->material->specularity;
+  //float prob_trans = s.object->material->translucency;
+  //if (selector < prob_trans + prob_spec)
+  if (selector < prob_spec)
   {
-    //diffuse
-    return SampleLobe(N, std::sqrt(r1), pi_2 * r2);
+    float theta = atan(s.object->material->alpha * std::sqrt(r1) / std::sqrt(1 - r1));
+    Eigen::Vector3f m = SampleLobe(N, cos(theta), pi_2 * r2);
+    /*
+    if (selector < prob_trans)
+    {
+      //transmissive
+      float r = 1.0 - std::pow(s.ior_ratio, 2) * (1.0 - std::pow(w_o.dot(m), 2));
+      if (r > 0)
+      {
+        float si = w_o.dot(N) >= 0 ? 1 : -1;
+        Eigen::Vector3f ret = ((s.ior_ratio * w_o.dot(m) - si * std::sqrt(r)) * m - s.ior_ratio * w_o).normalized();
+        return ret;
+      }
+    }
+    */
+
+    //specular
+    return (2 * std::abs(w_o.dot(m)) * m - w_o).normalized();
   }
   else
   {
-    //specular
-    float theta = atan(a * std::sqrt(r1) / std::sqrt(1 - r1));
-    Eigen::Vector3f m = SampleLobe(N, cos(theta), pi_2 * r2);
-    return 2 * w_o.dot(m) * m - w_o;
+    //diffuse
+    return SampleLobe(N, std::sqrt(r1), pi_2 * r2);
   }
 }
 

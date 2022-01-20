@@ -56,7 +56,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>libs\freeglut;libs\assimp\include;libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs\freeglut;libs\assimp\include;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FREEGLUT_STATIC;_LIB;FREEGLUT_LIB_PRAGMAS=0;EIGEN_DONT_ALIGN_STATICALLY;_ITERATOR_DEBUG_LEVEL=2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -89,7 +89,7 @@ xcopy .\libs\assimp\32\assimp.dll .\Debug/Y /D</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>libs\freeglut;libs\assimp\include;libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs\freeglut;libs\assimp\include;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FREEGLUT_STATIC;_LIB;FREEGLUT_LIB_PRAGMAS=0;EIGEN_DONT_ALIGN_STATICALLY;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -128,6 +128,11 @@ copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Intersection.cpp" />
     <ClCompile Include="Interval.cpp" />
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_opengl2.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_demo.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_draw.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="geom.cpp" />
     <ClCompile Include="Material.cpp" />
@@ -143,10 +148,19 @@ copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
     <ClCompile Include="rgbe.cpp" />
     <ClCompile Include="Shape.cpp" />
     <ClInclude Include="Bbox.h" />
+    <ClInclude Include="BMP.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Eulers.h" />
+    <ClInclude Include="ImageData.h" />
     <ClInclude Include="Intersection.h" />
     <ClInclude Include="Interval.h" />
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl2.h" />
+    <ClInclude Include="libs\imgui-master\imconfig.h" />
+    <ClInclude Include="libs\imgui-master\imgui.h" />
+    <ClInclude Include="libs\imgui-master\imgui_internal.h" />
+    <ClInclude Include="libs\imgui-master\imstb_rectpack.h" />
+    <ClInclude Include="libs\imgui-master\imstb_textedit.h" />
+    <ClInclude Include="libs\imgui-master\imstb_truetype.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="Minimizer.h" />
     <ClInclude Include="pch.h" />

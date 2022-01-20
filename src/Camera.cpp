@@ -26,7 +26,7 @@ void Camera::Rotate(Eigen::Quaternionf r)
   PrintSettings();
 }
 
-void Camera::ChangeFOV(float _w, float _f)
+void Camera::ChangeView(float _w, float _f)
 {
   w = (std::max)(0.f, w + _w);
   f = (std::max)(0.f, f + _f);
@@ -59,4 +59,10 @@ void Camera::PrintSettings()
 {
   //print last camera config
   std::cout << GetCameraString() << std::endl;
+}
+
+void Camera::UpdateFOV(float w, float h)
+{
+  rx = ry * w / h;
+  ResetViews();
 }

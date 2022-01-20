@@ -5,6 +5,7 @@
 //
 // Copyright 2012 DigiPen Institute of Technology
 ////////////////////////////////////////////////////////////////////////
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 
 #include <fstream>
 #include <sstream>
@@ -13,6 +14,8 @@
 #include <ctime>
 #include <iostream>
 #include <chrono>
+#include <future>
+#include <thread>
 
 #ifdef _WIN32
     // Includes for Windows
@@ -29,6 +32,42 @@
 #include "geom.h"
 #include "raytrace.h"
 #include "realtime.h"
+
+#include "ImageData.h"
+
+ImageData image, preview;
+
+//tracer variables
+Scene *scene;
+std::string hdrName;
+std::string bmpName;
+
+//camera settings
+float cam_speed_move = 0.1f;
+float cam_speed_rot = 2.f;
+
+//tracer state settings
+bool can_receive_input = true;
+bool isPaused = false;
+bool shouldReset = false;
+std::string scene_file_name;
+
+float preview_ratio = 0.1;
+
+float trace_duration = 0;
+float trace_diff = 0;
+
+float gui_fps = 0;
+
+int max_ms_to_wait = 100;
+
+float last_ms_to_wait = max_ms_to_wait;
+
+//may return 0 when not able to detect
+const auto processor_count = std::thread::hardware_concurrency() - 1;
+int num_threads_to_use = processor_count;
+
+void ResetTrace();
 
 // Read a scene file by parsing each line as a command and calling
 // scene->Command(...) with the results.
@@ -103,55 +142,87 @@ void RewriteScene(const std::string inName, Scene *scene)
 
 // Write the image as a HDR(RGBE) image.  
 #include "rgbe.h"
-void WriteHdrImage(const std::string outName, const int width, const int height, std::vector<Color> &image)
+void generateHDRImage(ImageData &id)
 {
+
+  //write HDR
     // Turn image from a 2D-bottom-up array of Vector3D to an top-down-array of floats
-    float* data = new float[width*height*3];
-    float* dp = data;
-    for (int y=height-1;  y>=0;  --y) {
-        for (int x=0;  x<width;  ++x) {
-            Color pixel = image[y*width + x];
-            *dp++ = pixel[0];
-            *dp++ = pixel[1];
-            *dp++ = pixel[2]; } }
+  float *data = new float[id.data.size() * 3];
+  float *dp = data;
+  for (int y = id.h - 1; y >= 0; --y) {
+    for (int x = 0; x < id.w; ++x) {
+      Color pixel = id.data[y * id.w + x];
+      *dp++ = pixel[0];
+      *dp++ = pixel[1];
+      *dp++ = pixel[2];
+    }
+  }
 
-    // Write image to file in HDR (a.k.a RADIANCE) format
-    rgbe_header_info info;
-    char errbuf[100] = {0};
+  // Write image to file in HDR (a.k.a RADIANCE) format
+  rgbe_header_info info;
+  char errbuf[100] = { 0 };
 
-    FILE* fp  =  fopen(outName.c_str(), "wb");
-    info.valid = false;
-    int r = RGBE_WriteHeader(fp, width, height, &info, errbuf);
-    if (r != RGBE_RETURN_SUCCESS)
-        printf("error: %s\n", errbuf);
+  FILE *fp = fopen(hdrName.c_str(), "wb");
+  info.valid = false;
+  int r = RGBE_WriteHeader(fp, id.w, id.h, &info, errbuf);
+  if (r != RGBE_RETURN_SUCCESS)
+    printf("error: %s\n", errbuf);
 
-    r = RGBE_WritePixels_RLE(fp, data, width,  height, errbuf);
-    if (r != RGBE_RETURN_SUCCESS)
-        printf("error: %s\n", errbuf);
-    fclose(fp);
-    
-    delete data;
+  r = RGBE_WritePixels_RLE(fp, data, id.w, id.h, errbuf);
+  if (r != RGBE_RETURN_SUCCESS)
+    printf("error: %s\n", errbuf);
+  fclose(fp);
+
+  delete data;
+
 }
 
-void ClearImage(std::vector<Color> &image, int w, int h, int &count)
+#include "BMP.h"
+//void SaveImageToDisk(ImageData &id)
+//{
+//  
+//  generateBitmapImage(id, bmpName.data());
+//
+//  return;
+//}
+
+void ClearImage(ImageData &id)
 {
-  for (int y = 0; y < h; y++)
-    for (int x = 0; x < w; x++)
-      image[y * w + x] = Color(0, 0, 0);
-  count = 1;
+  for (int y = 0; y < id.h; y++)
+    for (int x = 0; x < id.w; x++)
+      id.data[y * id.w + x] = Color(0, 0, 0);
+  id.trace_num = 1;
+}
+
+void ResizePreview()
+{
+  preview.w = preview_ratio * scene->requested_width;
+  preview.h = preview_ratio * scene->requested_height;
+  preview.data.resize(preview.w * preview.h);
+  ClearImage(preview);
+}
+
+void ResizeImages()
+{
+  image.w = scene->requested_width;
+  image.h = scene->requested_height;
+  image.data.resize(image.w * image.h);
+  ClearImage(image);
+
+  ResizePreview();
 }
 
 void SaveCopy(std::string &inName)
 {
-  std::string hdrName = inName;
-  std::string hdrBackup = inName;
+  std::string priorBmpName = inName;
+  std::string bmpBackup = inName;
 
   const auto p1 = std::chrono::system_clock::now();
-  std::string newpostfix = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count()) + std::string(".hdr");
-  hdrBackup.replace(hdrBackup.size() - 4, hdrBackup.size(), newpostfix);
-  hdrName.replace(hdrName.size() - 3, hdrName.size(), "hdr");
+  std::string newpostfix = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count()) + std::string(".bmp");
+  bmpBackup.replace(bmpBackup.size() - 4, bmpBackup.size(), newpostfix);
+  priorBmpName.replace(priorBmpName.size() - 3, priorBmpName.size(), "bmp");
 
-  system((std::string("copy ") + hdrName + " " + hdrBackup).c_str());
+  system((std::string("copy ") + priorBmpName + " " + bmpBackup).c_str());
 }
 
 void SetupScene(Scene *scene, std::string &inName, bool HardReset)
@@ -184,134 +255,320 @@ void SetInput(bool &can_input, bool val)
   if (can_input)
   {
     PurgeKeys();
-    std::cout << "input enabled" << std::endl;
   }
-  else
-    std::cout << "input disabled" << std::endl;
+}
+
+
+
+void DrawGUI()
+{
+
+  //ImGui::ShowDemoWindow();
+
+  // Start the Dear ImGui frame
+  ImGui_ImplOpenGL2_NewFrame();
+  ImGui_ImplGLUT_NewFrame();
+
+  ImGui::SetNextWindowSize(ImVec2(scene->gui_width, image.h));
+  ImGui::SetNextWindowPos(ImVec2(image.w, 0));
+  
+  ImGui::Begin("Fractal Tracer", NULL, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);                          // Create a window called "Hello, world!" and append into it.
+
+  ImGui::Text("GUI (%.1f FPS)", gui_fps);
+  ImGui::Text("Trace info:", image.trace_num);
+  ImGui::Text("Frame %d, %.3fs/trace, conv=%.4f", image.trace_num, trace_duration, trace_diff);
+  ImGui::Text("Preview Ratio: %.4f", preview_ratio);
+  
+  ImGui::BeginChild("settings");
+
+  if (ImGui::CollapsingHeader("scene"))
+  {
+    ImGui::Indent(16.0f);
+
+    // ImGui::InputText("scene_file", &scene_file_name);
+    if (ImGui::Button("reload_scene"))
+    {
+      //reload scene
+      SetupScene(scene, scene_file_name, true);
+      ResizeImages();
+      ResetTrace();
+    }
+    if (ImGui::Button("save_scene"))
+    {
+      SaveCopy(scene_file_name);
+      RewriteScene(scene_file_name, scene);
+    }
+    if (ImGui::Button("BMP snap"))
+    {
+      generateBitmapImage(image, bmpName.data());
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("HDR snap"))
+    {
+      generateHDRImage(image);
+    }
+
+    ImGui::Unindent(16.0f);
+  }
+  if (ImGui::CollapsingHeader("tracer settings"))
+  {
+    ImGui::Indent(16.0f);
+
+    const char *items[] = { 
+      "NONE",
+      "NORMAL",
+      "DEPTH",
+      "DIFFUSE",
+      "SIMPLE",
+      "POSITION", };
+    static int item_current = scene->DefaultMode;
+    if (ImGui::Combo("render_type", &item_current, items, IM_ARRAYSIZE(items), 4))
+    {
+      scene->DefaultMode = static_cast<Scene::DEBUG_MODE>(item_current);
+      // starting render, disable inputs
+      if (scene->DefaultMode == Scene::DEBUG_MODE::NONE)
+      {
+        SetInput(can_receive_input, false); 
+        srand(427857);
+      }
+      ResetTrace();
+    }
+    ImGui::Checkbox("can_receive_input", &can_receive_input);
+    ImGui::SliderInt("threads", &num_threads_to_use, 1, processor_count);
+    if (ImGui::Checkbox("isPaused", &isPaused))
+    {
+      SetInput(can_receive_input, false);
+    }
+    if (ImGui::Checkbox("halfDome", &scene->halfDome))
+    {
+      ResetTrace();
+    }
+
+    ImGui::Unindent(16.0f);
+  }
+  if (ImGui::CollapsingHeader("camera settings"))
+  {
+    ImGui::Indent(16.0f);
+
+    ImGui::InputFloat("cammovespeed", &cam_speed_move);
+    ImGui::InputFloat("camrotspeed", &cam_speed_rot);
+    if (ImGui::Checkbox("depth_of_field", &scene->depth_of_field))
+    {
+      ResetTrace();
+    }
+    if (scene->depth_of_field)
+    {
+      ImGui::Indent(10.f);
+      if (ImGui::InputFloat("dof_w", &scene->camera.w))
+        ResetTrace();
+      if(ImGui::InputFloat("dof_f", &scene->camera.f))
+        ResetTrace();
+      ImGui::Unindent(10.f);
+    }
+    if (ImGui::Checkbox("use_AA", &scene->use_AA))
+    {
+      ResetTrace();
+    }
+    if (ImGui::DragFloat("camera_fov", &scene->camera.ry, 0.01f, 0.01f, 1.0f, "%.2f"))
+    {
+      scene->camera.UpdateFOV(image.w, image.h);
+      ResetTrace();
+    }
+
+    ImGui::Unindent(16.0f);
+  }
+  if(ImGui::CollapsingHeader("shapes"))
+  {
+    ImGui::Indent(16.0f);
+
+    for (size_t i = 0; i < scene->objects_p.size(); i++)
+    {
+      if (scene->objects_p[i]->RenderGenericGUI(i))
+      {
+        ResetTrace();
+      }
+    }
+
+    ImGui::Unindent(16.0f);
+  }
+
+  ImGui::EndChild();
+
+  ImGui::End();
+
+
+  // Rendering
+  ImGui::Render();
+  ImGuiIO &io = ImGui::GetIO();
+
+
+  ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+}
+
+void ResetTrace()
+{
+  shouldReset = true;
+  ClearImage(preview);
+}
+
+void InterfaceLoop()
+{
+  // state bools
+  bool isWindowActive = true;
+  while (!scene->realtime->closed)
+  {
+    if (!isPaused)
+    {
+      if (shouldReset)
+      {
+        ClearImage(image);
+        shouldReset = false;
+      }
+
+      if (scene->realtime->needs_resize)
+      {
+        scene->requested_width = scene->realtime->window_width < scene->gui_width ? 1 : scene->realtime->window_width - scene->gui_width;
+        scene->requested_height = scene->realtime->window_height;
+        ResizeImages();
+        ResetTrace();
+        scene->realtime->needs_resize = false;
+      }
+
+      auto start_time = std::chrono::high_resolution_clock::now();
+
+      bool update_pass = (image.trace_num - 1) % 10 == 0 || (IsKeyDown("Space") && isWindowActive);
+      float diff = scene->TraceImage(image, update_pass, num_threads_to_use);
+      if (update_pass)
+        trace_diff = diff;
+
+      auto end_time = std::chrono::high_resolution_clock::now();
+      float ms = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
+      trace_duration = ms / 1000000.f;
+
+      if (update_pass)
+      {
+        //just in case...
+        generateBitmapImage(image, bmpName.data());
+      }
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////
 int main(int argc, char** argv)
 {
-    Scene* scene = new Scene();
+
+    scene = new Scene();
 
     // Read the command line argument
-    std::string inName =  (argc > 1) ? argv[1] : "testscene.scn";
-    std::string hdrName = inName;
+    scene_file_name =  (argc > 1) ? argv[1] : "testscene.scn";
+    hdrName = scene_file_name;
     hdrName.replace(hdrName.size() - 3, hdrName.size(), "hdr");
+    bmpName = scene_file_name;
+    bmpName.replace(bmpName.size() - 3, bmpName.size(), "bmp");
 
 
-    SetupScene(scene, inName, true);
+    SetupScene(scene, scene_file_name, true);
 
     // Allocate and clear an image array
-    int trace_num;
-    std::vector<Color> image;
-    image.resize(scene->width * scene->height);
-    ClearImage(image, scene->width, scene->height, trace_num);
-    trace_num = 1;
+    ResizeImages();
 
     scene->realtime->setup();
 
-    // camera movement speeds
-    float s = 0.1f;
-    float r_s = 2.f;
-
     // state bools
     bool autoStart = argc > 1 ? true : false;
-    bool can_receive_input = false;
     bool isWindowActive = true;
-    bool isPaused = false;
-    bool releasedF10 = true;
-    
-    bool halfDome = false;
 
     if (autoStart)
-      scene->DefaultMode = Scene::DEBUG_MODE::NONE;
+      scene->DefaultMode = Scene::DEBUG_MODE::DIFFUSE;
 
-    while (!(IsKeyDown("Esc") && IsKeyDown("Shift") && isWindowActive))
+    // run interface loop
+    auto it = std::thread(InterfaceLoop);
+    bool previewed_this_frame = false;
+
+    float min_ratio = image.w;
+    if (image.h < image.w)
+      min_ratio = 2 / min_ratio;
+
+    while (!(IsKeyDown("Esc") && IsKeyDown("Shift") && isWindowActive) && !scene->realtime->closed)
     {
+      auto start_time = std::chrono::high_resolution_clock::now();
+
       isWindowActive = GetConsoleWindow() == GetForegroundWindow() || scene->realtime->isWindowActive();
-      if (!isPaused)
+
+      if (!scene->realtime->closed)
       {
-        bool update_pass = trace_num < 10 || (trace_num - 1) % 10 == 0 || (IsKeyDown("Space") && isWindowActive);
-        float diff;
-        if (halfDome)
-          diff = scene->TraceHalfDome(image, trace_num++, update_pass);
-        else
-          diff = scene->TraceImage(image, trace_num++, update_pass);
-        if (update_pass)
+        if ((image.trace_num < 2 && scene->DefaultMode != Scene::DEBUG_MODE::NONE) || shouldReset)
         {
-          //just in case...
-          scene->realtime->DrawArray(image);
-          WriteHdrImage(hdrName, scene->width, scene->height, image);
-          if (diff < 0.0000001f && autoStart)
-            break;
+          float diff = scene->TraceImage(preview, false, num_threads_to_use);
+          scene->realtime->DrawArray(preview, scene->gui_width);
+          previewed_this_frame = true;
         }
+        else
+        {
+          scene->realtime->DrawArray(image, scene->gui_width);
+        }
+        DrawGUI();
+        scene->realtime->FinishDrawing();
       }
 
       scene->realtime->UpdateEvent();
 
-      if (GetAsyncKeyState(VK_F10) && isWindowActive)
-      {
-        if (releasedF10)
-        {
-          SetInput(can_receive_input, !can_receive_input);
-          releasedF10 = false;
-        }
-      }
-      else
-        releasedF10 = true;
-
       if (can_receive_input && isWindowActive)
       {
-        bool reset = false;
-        if (IsKeyDown("A")) { scene->MoveCamera(Eigen::Vector3f(-s, 0, 0)); reset = true; }
-        if (IsKeyDown("D")) { scene->MoveCamera(Eigen::Vector3f( s, 0, 0)); reset = true; }
-        if (IsKeyDown("E")) { scene->MoveCamera(Eigen::Vector3f(0, 0, -s)); reset = true; }
-        if (IsKeyDown("Q")) { scene->MoveCamera(Eigen::Vector3f(0, 0,  s)); reset = true; }
-        if (IsKeyDown("W")) { scene->MoveCamera(Eigen::Vector3f(0,  s, 0)); reset = true; }
-        if (IsKeyDown("S") && !IsKeyDown("Control")) { scene->MoveCamera(Eigen::Vector3f(0, -s, 0)); reset = true; }
 
-        if (IsKeyDown("J")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0,  r_s, 0))); reset = true; }
-        if (IsKeyDown("L")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0, -r_s, 0))); reset = true; }
-        if (IsKeyDown("K")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(-r_s, 0, 0))); reset = true; }
-        if (IsKeyDown("I")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f( r_s, 0, 0))); reset = true; }
-        if (IsKeyDown("O")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0, 0, -r_s))); reset = true; }
-        if (IsKeyDown("U")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0, 0,  r_s))); reset = true; }
+        if (IsKeyDown("A")) { scene->MoveCamera(Eigen::Vector3f(-cam_speed_move, 0, 0)); ResetTrace(); }
+        if (IsKeyDown("D")) { scene->MoveCamera(Eigen::Vector3f( cam_speed_move, 0, 0)); ResetTrace(); }
+        if (IsKeyDown("E")) { scene->MoveCamera(Eigen::Vector3f(0, 0, -cam_speed_move)); ResetTrace(); }
+        if (IsKeyDown("Q")) { scene->MoveCamera(Eigen::Vector3f(0, 0,  cam_speed_move)); ResetTrace(); }
+        if (IsKeyDown("W")) { scene->MoveCamera(Eigen::Vector3f(0,  cam_speed_move, 0)); ResetTrace(); }
+        if (IsKeyDown("S")) { scene->MoveCamera(Eigen::Vector3f(0, -cam_speed_move, 0)); ResetTrace(); }
 
-        if (IsKeyDown("Alphanumeric_0")) { scene->DefaultMode = Scene::DEBUG_MODE::NONE;    reset = true; SetInput(can_receive_input, false); }
-        if (IsKeyDown("Alphanumeric_1")) { scene->DefaultMode = Scene::DEBUG_MODE::SIMPLE;  reset = true; }
-        if (IsKeyDown("Alphanumeric_2")) { scene->DefaultMode = Scene::DEBUG_MODE::NORMAL;  reset = true; }
-        if (IsKeyDown("Alphanumeric_3")) { scene->DefaultMode = Scene::DEBUG_MODE::DEPTH;   reset = true; }
-        if (IsKeyDown("Alphanumeric_4")) { scene->DefaultMode = Scene::DEBUG_MODE::DIFFUSE; reset = true; }
-        if (IsKeyDown("Alphanumeric_5")) { scene->DefaultMode = Scene::DEBUG_MODE::POSITION; reset = true; }
+        if (IsKeyDown("J")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0,  cam_speed_rot, 0))); ResetTrace(); }
+        if (IsKeyDown("L")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0, -cam_speed_rot, 0))); ResetTrace(); }
+        if (IsKeyDown("K")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(-cam_speed_rot, 0, 0))); ResetTrace(); }
+        if (IsKeyDown("I")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f( cam_speed_rot, 0, 0))); ResetTrace(); }
+        if (IsKeyDown("O")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0, 0, -cam_speed_rot))); ResetTrace(); }
+        if (IsKeyDown("U")) { scene->RotateCamera(EulerToQuat(Eigen::Vector3f(0, 0,  cam_speed_rot))); ResetTrace(); }
+      }
+      
+      auto end_time = std::chrono::high_resolution_clock::now();
 
+      float ms = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 
-        if (IsKeyDown("F")) { scene->depth_of_field = !scene->depth_of_field; reset = true; }
-        if (IsKeyDown("H")) { halfDome = !halfDome; reset = true; }
-        if (IsKeyDown("P")) { std::cout << (isPaused ? "unpause" : "pause") << std::endl; isPaused = !isPaused; SetInput(can_receive_input, false); }
+      float ms_to_wait = max_ms_to_wait - ms;
 
-        if (IsKeyDown("R")) {
-          //reload scene
-          SetupScene(scene, inName, GetAsyncKeyState(VK_SHIFT));
-          image.resize(scene->width *scene->height);
-          reset = true;
-        }
+      gui_fps = 6000 / ms;
 
-        if (IsKeyDown("Add")) { s *= 1.4; r_s *= 1.4; }
-        if (IsKeyDown("Subtract")) { s *= 0.6; r_s *= 0.6; }
+      if (previewed_this_frame)
+      {
+        //negative->make smaller, 0->no change, 100->make bigger
+        float avg_ms_to_wait = (last_ms_to_wait + ms_to_wait) / 2.f;
+        float ideal_ratio = avg_ms_to_wait / max_ms_to_wait;
+        if (ideal_ratio < min_ratio)
+          ideal_ratio = min_ratio;
+        if (ideal_ratio > 1)
+          ideal_ratio = 1;
 
-        if (IsKeyDown("Control") && IsKeyDown("S")) { SaveCopy(inName); RewriteScene(inName, scene); }
-
-        if (reset)
+        float suggested_ratio = (ideal_ratio + preview_ratio) / 2;
+        if (std::abs(preview_ratio - suggested_ratio) > 0.1)
         {
-          ClearImage(image, scene->width, scene->height, trace_num);
-          scene->ReCalcDirs();
+          preview_ratio = suggested_ratio;
+          ResizePreview();
         }
+        previewed_this_frame = false;
       }
 
+      if (ms_to_wait < 0) ms_to_wait = 0;
+
+      last_ms_to_wait = ms_to_wait;
+
+      Sleep(ms_to_wait);
     }
 
+    // wait for the last render to finish
+    it.join();
+
     // one for the road
-    WriteHdrImage(hdrName, scene->width, scene->height, image);
+    generateBitmapImage(image, bmpName.data());
 }

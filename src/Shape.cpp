@@ -565,7 +565,7 @@ const float bailout_dist = 1000;
 float Fractal::DE_Generic(Eigen::Vector3f _z)
 {
   Eigen::Vector3f z = rot_inv._transformVector(_z) - Center;
-  //Eigen::Vector3f z = _z;
+
   float r = z.squaredNorm();
   int i = 0;
   for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
@@ -589,8 +589,6 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
       }
     }
 
-    z = Scale * (z - Eigen::Vector3f::Ones()) + Eigen::Vector3f::Ones();
-    //z = z * Scale - Center * (Scale - 1);
     r = z.squaredNorm();
   }
 

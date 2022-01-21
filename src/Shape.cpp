@@ -47,7 +47,7 @@ void Sphere::GetRandomPointOn(Intersection &I)
   float e2 = randf();
   float z = 2 * e1 - 1;
   float r = std::sqrt(1 - z * z);
-  float a = 2 * 3.14159 * e2;
+  float a = 2.f * 3.14159f * e2;
   I.N = Eigen::Vector3f(r * std::cos(a), r * std::sin(a), z).normalized();
   I.P = Center + Radius * I.N;
   I.object = this;
@@ -60,7 +60,7 @@ void Sphere::ResetSettings()
     Center + Eigen::Vector3f::Ones() * Radius
     );
   this->Position = Center;
-  this->SurfaceArea = 4 * 3.14159 * Radius * Radius;
+  this->SurfaceArea = 4.f * 3.14159f * Radius * Radius;
 }
 
 bool Sphere::RenderGUI(int i)
@@ -244,7 +244,7 @@ void Cylinder::ResetSettings()
     )
     );
   this->Position = Base + Axis / 2.f;
-  this->SurfaceArea = 2 * 3.14159 * radius * (Axis.norm() + radius);
+  this->SurfaceArea = 2.f * 3.14159f * radius * (Axis.norm() + radius);
 }
 
 void Cylinder::Intersect(const Ray &in, Intersection &i)
@@ -383,10 +383,10 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
 
         i.Kd = color_it_fold_ratio * it_based + (1.f - color_it_fold_ratio) * fold_based;
 
-        if (color_it_intensity < 0)
-          i.Kd *= (1 + color_it_intensity);
+        if (color_intensity < 0)
+          i.Kd *= (1 + color_intensity);
         else
-          i.Kd += (Eigen::Vector3f::Ones() - i.Kd) * color_it_intensity;
+          i.Kd += (Eigen::Vector3f::Ones() - i.Kd) * color_intensity;
       }
      
       //norm needs to be estimated
@@ -412,22 +412,22 @@ bool Fractal::RenderGUI(int n)
 
   ImGui::Text("Marching");
   ImGui::Indent(5.f);
-  something_changed |= ImGui::InputInt((std::string("max_iteration") + std::to_string(n)).data(), &max_iteration);
-  something_changed |= ImGui::DragFloat((std::string("min_distance") + std::to_string(n)).data(), &min_distance, 0.00001f, 0.0f, 1000.0f, "%.5f");
-  something_changed |= ImGui::InputInt((std::string("num_subdivisions") + std::to_string(n)).data(), &num_subdivisions);
+  something_changed |= ImGui::InputInt((std::string("max_iteration##") + std::to_string(n)).data(), &max_iteration);
+  something_changed |= ImGui::DragFloat((std::string("min_distance##") + std::to_string(n)).data(), &min_distance, 0.00001f, 0.0f, 1000.0f, "%.5f");
+  something_changed |= ImGui::InputInt((std::string("num_subdivisions##") + std::to_string(n)).data(), &num_subdivisions);
   ImGui::Unindent(5.f);
 
   ImGui::Separator();
 
   ImGui::Text("Transform");
   ImGui::Indent(5.f);
-  if (ImGui::DragFloat3((std::string("center") + std::to_string(n)).data(), Center.data(), 0.01f, -10000, 10000, "%.2f"))
+  if (ImGui::DragFloat3((std::string("center##") + std::to_string(n)).data(), Center.data(), 0.01f, -10000, 10000, "%.2f"))
   {
     something_changed = true;
     this->Position = Center;
   }
-  something_changed |= ImGui::DragFloat((std::string("scale") + std::to_string(n)).data(), &Scale, 0.001f, 0, 100000, "%.3f");
-  if (ImGui::DragFloat3((std::string("rotation") + std::to_string(n)).data(), &rot_eulers[0], 0.1f, -180, 180, "%.1f"))
+  something_changed |= ImGui::DragFloat((std::string("scale##") + std::to_string(n)).data(), &Scale, 0.001f, 0, 100000, "%.3f");
+  if (ImGui::DragFloat3((std::string("rotation##") + std::to_string(n)).data(), &rot_eulers[0], 0.1f, -180, 180, "%.1f"))
   {
     something_changed = true;
     rot = EulerToQuat(rot_eulers);
@@ -438,10 +438,17 @@ bool Fractal::RenderGUI(int n)
   ImGui::Separator();
   ImGui::Text("Color");
   ImGui::Indent(5.f);
-  something_changed |= ImGui::SliderFloat((std::string("ratio") + std::to_string(n)).data(), &color_it_fold_ratio, 0.f, 1.f);
-  something_changed |= ImGui::SliderFloat((std::string("intensity") + std::to_string(n)).data(), &color_it_intensity, -1.f, 1.f);
-  something_changed |= ImGui::SliderFloat((std::string("it_add") + std::to_string(n)).data(), &color_it_add, 0.f, 1.f);
-  something_changed |= ImGui::DragFloat((std::string("it_scale") + std::to_string(n)).data(), &color_it_scale, 0.1f, 0.f, 1000.f, "%.1f");
+  something_changed |= ImGui::Checkbox((std::string("flat_color##") + std::to_string(n)).data(), &flat_color);
+  if (!flat_color)
+  {
+    something_changed |= ImGui::SliderFloat((std::string("ratio##") + std::to_string(n)).data(), &color_it_fold_ratio, 0.f, 1.f);
+    something_changed |= ImGui::SliderFloat((std::string("intensity##") + std::to_string(n)).data(), &color_intensity, -1.f, 1.f);
+    if (color_it_fold_ratio > 0)
+    {
+      something_changed |= ImGui::SliderFloat((std::string("it_add##") + std::to_string(n)).data(), &color_it_add, 0.f, 1.f);
+      something_changed |= ImGui::DragFloat((std::string("it_scale##") + std::to_string(n)).data(), &color_it_scale, 0.1f, 0.f, 1000.f, "%.1f");
+    }
+  }
   ImGui::Unindent(5.f);
 
   ImGui::Separator();
@@ -485,24 +492,24 @@ bool Fractal::RenderGUI(int n)
       }
       CombinedActions[i].VecOp = CombinedActions[i].DisplayOp;
     }
-    std::string label = "##action" + std::to_string(n) + std::to_string(i);
+
     switch (CombinedActions[i].action_type) {
     case 0:
       // fold
-      if (ImGui::DragFloat3(label.data(), CombinedActions[i].DisplayOp.data(), 0.01f, -1.f, 1.f, "%.2f"))
+      if (ImGui::DragFloat3((std::string("fold_plane##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.01f, -1.f, 1.f, "%.2f"))
       {
         something_changed = true;
         CombinedActions[i].VecOp = CombinedActions[i].DisplayOp.normalized();
         CombinedActions[i].VecOp2 = 2 * CombinedActions[i].DisplayOp.normalized();
       }
-      if (ImGui::DragFloat3(("fold_color" + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].Color.data(), 0.01f, 0.f, 1.f, "%.2f"))
+      if (ImGui::DragFloat3(("fold_color##" + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].Color.data(), 0.01f, 0.f, 1.f, "%.2f"))
       {
         something_changed = true;
       }
       break;
     case 1:
       //rotation
-      if (ImGui::DragFloat3(label.data(), CombinedActions[i].DisplayOp.data(), 0.1f, -180, 180.f, "%.1f"))
+      if (ImGui::DragFloat3((std::string("rotation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.1f, -180, 180.f, "%.1f"))
       {
         something_changed = true;
         CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
@@ -510,11 +517,11 @@ bool Fractal::RenderGUI(int n)
       break;
     case 2:
       //scale
-      something_changed |= ImGui::DragFloat3(label.data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
+      something_changed |= ImGui::DragFloat3((std::string("scale##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
       break;
     case 3:
       //translation
-      something_changed |= ImGui::DragFloat3(label.data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
+      something_changed |= ImGui::DragFloat3((std::string("translation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
       break;
     }
     if (ImGui::Button((std::string("+##") + std::to_string(n) + std::to_string(i)).data()))
@@ -563,7 +570,7 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
   int i = 0;
   for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
   {
-    for (int i = 0; i < CombinedActions.size(); i++)
+    for (size_t i = 0; i < CombinedActions.size(); i++)
     {
       switch (CombinedActions[i].action_type)
       {
@@ -587,7 +594,7 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
     r = z.squaredNorm();
   }
 
-  return (std::sqrt(r) - 2.f) * std::pow(Scale, -i);
+  return (std::sqrt(r) - 2.f) * (float)std::pow(Scale, -i);
 }
 
 bool Fractal::Action_Fold_Color(Eigen::Vector3f &p, int fold_index)
@@ -632,7 +639,7 @@ Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
   float w = 1;
   for (i = 0; i < num_subdivisions && r < bailout_dist; i++)
   {
-    for (int action_num = 0; action_num < CombinedActions.size(); action_num++)
+    for (size_t action_num = 0; action_num < CombinedActions.size(); action_num++)
     {
       switch (CombinedActions[action_num].action_type)
       {
@@ -675,7 +682,7 @@ void Fractal::GenColors()
 {
   int num_folds = NumFolds();
   int current_color = 0;
-  for (int i = 0; i < CombinedActions.size(); i++)
+  for (size_t i = 0; i < CombinedActions.size(); i++)
   {
     if (CombinedActions[i].action_type == 0)
     {
@@ -689,9 +696,9 @@ void Fractal::GenColors()
 
 Eigen::Vector3f Fractal::ColorFromFloat(float val)
 {
-  float r = std::sin(pi_2 * (val)) * 0.5 + 0.5;
-  float g = std::sin(pi_2 * (val + 0.33333333f)) * 0.5 + 0.5;
-  float b = std::sin(pi_2 * (val + 0.66666666f)) * 0.5 + 0.5;
+  float r = std::sin(pi_2 * (val)) * 0.5f + 0.5f;
+  float g = std::sin(pi_2 * (val + 0.33333333f)) * 0.5f + 0.5f;
+  float b = std::sin(pi_2 * (val + 0.66666666f)) * 0.5f + 0.5f;
   Eigen::Vector3f ret(r, g, b);
   return ret;
 }

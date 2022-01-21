@@ -30,9 +30,9 @@ static float Luminance(Eigen::Vector3f &c)
 }
 
 // returns a random float between 0 and 1
-static double randf()
+static float randf()
 {
-  return static_cast<double>(std::rand()) / RAND_MAX;
+  return static_cast<float>(std::rand()) / RAND_MAX;
 }
 
 // array of key codes

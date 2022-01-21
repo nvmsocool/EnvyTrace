@@ -52,14 +52,14 @@ bool isPaused = false;
 bool shouldReset = false;
 std::string scene_file_name;
 
-float preview_ratio = 0.1;
+float preview_ratio = 0.1f;
 
 float trace_duration = 0;
 float trace_diff = 0;
 
 float gui_fps = 0;
 
-int max_ms_to_wait = 100;
+float max_ms_to_wait = 100.f;
 
 float last_ms_to_wait = max_ms_to_wait;
 
@@ -89,7 +89,7 @@ void ReadScene(const std::string inName, Scene* scene, bool Hard)
         for (std::string s; lineStream >> s; ) { // Parses space-separated strings until EOL
             float f;
             //std::stringstream(s) >> f; // Parses an initial float into f, or zero if illegal
-            if (!(std::stringstream(s) >> f)) f = nan(""); // An alternate that produced NANs
+            if (!(std::stringstream(s) >> f)) f = (float)nan(""); // An alternate that produced NANs
             floats.push_back(f);
             strings.push_back(s); }
 
@@ -196,8 +196,8 @@ void ClearImage(ImageData &id)
 
 void ResizePreview()
 {
-  preview.w = preview_ratio * scene->requested_width;
-  preview.h = preview_ratio * scene->requested_height;
+  preview.w = (int)(preview_ratio * scene->requested_width);
+  preview.h = (int)(preview_ratio * scene->requested_height);
   preview.data.resize(preview.w * preview.h);
   ClearImage(preview);
 }
@@ -269,8 +269,8 @@ void DrawGUI()
   ImGui_ImplOpenGL2_NewFrame();
   ImGui_ImplGLUT_NewFrame();
 
-  ImGui::SetNextWindowSize(ImVec2(scene->gui_width, image.h));
-  ImGui::SetNextWindowPos(ImVec2(image.w, 0));
+  ImGui::SetNextWindowSize(ImVec2((float)scene->gui_width, (float)image.h));
+  ImGui::SetNextWindowPos(ImVec2((float)image.w, 0.f));
   
   ImGui::Begin("Fractal Tracer", NULL, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);                          // Create a window called "Hello, world!" and append into it.
 
@@ -359,9 +359,9 @@ void DrawGUI()
     if (scene->depth_of_field)
     {
       ImGui::Indent(10.f);
-      if (ImGui::DragFloat("dof_w", &scene->camera.w, 0.001f, 0.0, 100, "%.3f"))
+      if (ImGui::DragFloat("amount", &scene->camera.w, 0.001f, 0.0, 100, "%.3f"))
         ResetTrace();
-      if(ImGui::DragFloat("dof_f", &scene->camera.f, 0.01f, 0.f, 10000.f, "%2f"))
+      if(ImGui::DragFloat("distance", &scene->camera.f, 0.01f, 0.f, 10000.f, "%2f"))
         ResetTrace();
       ImGui::Unindent(10.f);
     }
@@ -371,7 +371,7 @@ void DrawGUI()
     }
     if (ImGui::DragFloat("fov", &scene->camera.ry, 0.01f, 0.01f, 1.0f, "%.2f"))
     {
-      scene->camera.UpdateFOV(image.w, image.h);
+      scene->camera.UpdateFOV((float)image.w, (float)image.h);
       ResetTrace();
     }
 
@@ -486,7 +486,7 @@ int main(int argc, char** argv)
     auto it = std::thread(InterfaceLoop);
     bool previewed_this_frame = false;
 
-    float min_ratio = image.w;
+    float min_ratio = (float)image.w;
     if (image.h < image.w)
       min_ratio = 2 / min_ratio;
 
@@ -563,7 +563,7 @@ int main(int argc, char** argv)
 
       last_ms_to_wait = ms_to_wait;
 
-      Sleep(ms_to_wait);
+      Sleep((DWORD)ms_to_wait);
     }
 
     // wait for the last render to finish

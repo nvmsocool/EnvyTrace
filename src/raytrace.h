@@ -7,7 +7,7 @@
 class Shape;
 #include "Camera.h"
 #include "Material.h"
-#include "Shape.h";
+#include "Shape.h"
 #include "Minimizer.h"
 #include "Intersection.h"
 #include "ImageData.h"
@@ -50,7 +50,7 @@ class Realtime;
 class Scene {
 public:
     int requested_width, requested_height;
-    int gui_width{ 300 };
+    int gui_width{ 350 };
     Realtime *realtime{ nullptr };         // Remove this (realtime stuff)
     Material* currentMat;
     Camera camera;

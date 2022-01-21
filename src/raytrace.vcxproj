@@ -64,7 +64,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <DisableSpecificWarnings>4251;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4251;4996;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <OpenMPSupport>true</OpenMPSupport>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -95,7 +95,7 @@ xcopy .\libs\assimp\32\assimp.dll .\Debug/Y /D</Command>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4251;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4251;4996;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <OpenMPSupport>true</OpenMPSupport>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>

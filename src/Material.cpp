@@ -1,5 +1,6 @@
 #include "Material.h"
 #include "imgui.h"
+#include <iostream>
 
 float Material::D(Eigen::Vector3f h, Eigen::Vector3f N)
 {
@@ -8,7 +9,7 @@ float Material::D(Eigen::Vector3f h, Eigen::Vector3f N)
   if (h_N == 0 || std::abs(h_N) > 1.f)
     return 0;
   float tan_theta = std::sqrt(1 - h_N * h_N) / h_N;
-  float denom = (PI * std::pow(h_N, 4) * std::pow(a_2 + tan_theta * tan_theta, 2));
+  float denom = (PI * (float)(std::pow(h_N, 4) * std::pow(a_2 + tan_theta * tan_theta, 2)));
   if (denom < 0.001f)
     return 1.f;
   return Charictaristic(h_N) * a_2 / denom;
@@ -23,8 +24,6 @@ float Material::G(Eigen::Vector3f w_i, Eigen::Vector3f w_o, Eigen::Vector3f h, E
 {
   return G_1(w_i, h, N) * G_1(w_o, h, N);
 }
-
-#include <iostream>;
 
 float Material::G_1(Eigen::Vector3f w, Eigen::Vector3f h, Eigen::Vector3f N)
 {

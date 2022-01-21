@@ -41,7 +41,7 @@ public:
   float G(Eigen::Vector3f w_i, Eigen::Vector3f w_o, Eigen::Vector3f h, Eigen::Vector3f N);
   float G_1(Eigen::Vector3f w, Eigen::Vector3f h, Eigen::Vector3f N);
   inline float Charictaristic(float d) {
-    return d > 0 ? 1.0 : 0.0;
+    return d > 0 ? 1.f : 0.f;
   };
 
 protected:

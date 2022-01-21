@@ -45,33 +45,33 @@ void Scene::Finit()
 
   objects_p.clear();
   lights_p.clear();
-  for (int i = 0; i < spheres.size(); i++)
+  for (size_t i = 0; i < spheres.size(); i++)
   {
     objects_p.push_back(static_cast<Shape *>(&(spheres[i])));
     spheres[i].name += std::to_string(i);
   }
-  for (int i = 0; i < boxes.size(); i++)
+  for (size_t i = 0; i < boxes.size(); i++)
   {
     objects_p.push_back(&(boxes[i]));
     boxes[i].name += std::to_string(i);
   }
-  for (int i = 0; i < triangles.size(); i++)
+  for (size_t i = 0; i < triangles.size(); i++)
   {
     objects_p.push_back(&(triangles[i]));
     triangles[i].name += std::to_string(i);
   }
-  for (int i = 0; i < cylinders.size(); i++)
+  for (size_t i = 0; i < cylinders.size(); i++)
   {
     objects_p.push_back(&(cylinders[i]));
     cylinders[i].name += std::to_string(i);
   }
-  for (int i = 0; i < fractals.size(); i++)
+  for (size_t i = 0; i < fractals.size(); i++)
   {
     fractals[i].GenColors();
     objects_p.push_back(&(fractals[i]));
     fractals[i].name += std::to_string(i);
   }
-  for (int i = 0; i < objects_p.size(); i++)
+  for (size_t i = 0; i < objects_p.size(); i++)
     if (objects_p[i]->material->isLight())
       lights_p.push_back(objects_p[i]);
   Tree = KdBVH<float, 3, Shape *>(objects_p.begin(), objects_p.end());
@@ -83,7 +83,7 @@ void Scene::triangleMesh(MeshData *mesh)
   GenTris(mesh);
 }
 
-Quaternionf Orientation(int i,
+Quaternionf Orientation(size_t i,
   const std::vector<std::string> &strings,
   const std::vector<float> &f)
 {
@@ -184,7 +184,7 @@ void Scene::Command(const std::vector<std::string> &strings,
       Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
 
       //realtime->setCamera(Vector3f(f[1], f[2], f[3]), Orientation(5, strings, f), f[4]);
-      camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], requested_width, requested_height, f[8], f[9]);
+      camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], (float)requested_width, (float)requested_height, f[8], f[9]);
     }
     camera.w = f[8];
     camera.f = f[9];
@@ -248,9 +248,9 @@ void Scene::Command(const std::vector<std::string> &strings,
     Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
     fractals.push_back(Fractal(f[4], Vector3f(f[1], f[2], f[3]), rot, currentMat));
     Fractal *fr = &fractals[fractals.size() - 1];
-    fr->SetRecursionProperties(f[8], f[9], f[10]);
+    fr->SetRecursionProperties((int)f[8], (int)f[9], f[10]);
 
-    int current_index = 11;
+    size_t current_index = 11;
     while (current_index < f.size())
     {
 
@@ -390,7 +390,7 @@ void Scene::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
   }
   else
   {
-    r.origin = camera.position - camera.rotation._transformVector(Eigen::Vector3f(0.035, 0, 0));
+    r.origin = camera.position - camera.rotation._transformVector(Eigen::Vector3f(0.035f, 0, 0));
     phi = pi * (2.f * (x - halfway) + randf()) / id.w;
   }
   float x_d = sinTheta * std::cos(phi);
@@ -400,7 +400,7 @@ void Scene::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
 
 Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
 {
-  Eigen::Vector3f color(0.001, 0.001, 0.001);
+  Eigen::Vector3f color(0.001f, 0.001f, 0.001f);
   minimizer.closest_int.Reset();
 
   Eigen::BVMinimize(Tree, minimizer);
@@ -471,7 +471,7 @@ void PrintMe(float f, std::string msg)
 Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 {
 
-  Eigen::Vector3f color(0.001, 0.001, 0.001);
+  Eigen::Vector3f color(0.001f, 0.001f, 0.001f);
   Eigen::Vector3f weight(1,1,1);
 
   //initial
@@ -537,7 +537,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     if (I.object == L.object)
     {
       float q = PdfBRDF(w_o, N, w_i, P);
-      float w_mis = std::pow(p, 2) / (std::pow(p, 2) + std::pow(q, 2));
+      float w_mis = (float)(std::pow(p, 2) / (std::pow(p, 2) + std::pow(q, 2)));
       Eigen::Vector3f f = EvalScattering(w_o, N, w_i, P);
       color += 0.5f * w_mis * weight.cwiseProduct(f).cwiseProduct(EvalRadiance(L)) / p;
 
@@ -582,7 +582,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 
     if (p == 0)
     {
-      int test = PdfBRDF(w_o, N, w_i, P);
+      int test = (int)PdfBRDF(w_o, N, w_i, P);
     }
 
 #ifdef LOGGIN
@@ -616,7 +616,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     if (Q.object->material->isLight())
     {
       float q = PdfLight(Q.object) / GeometryFactor(P, Q);
-      float w_mis = std::pow(p, 2) / (std::pow(p, 2) + std::pow(q, 2));
+      float w_mis = (float)(std::pow(p, 2) / (std::pow(p, 2) + std::pow(q, 2)));
       // after light
       color += 0.5 * w_mis * weight.cwiseProduct(EvalRadiance(Q));
 

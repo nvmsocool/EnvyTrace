@@ -187,7 +187,7 @@ public:
   float color_it_scale = 3;
   float color_it_add = 0.0;
   float color_it_fold_ratio = 0.5;
-  float color_it_intensity = 0.0;
+  float color_intensity = 0.0;
 
   void Action_Fold(Eigen::Vector3f &p, int index);
   bool Action_Fold_Color(Eigen::Vector3f &p, int index);

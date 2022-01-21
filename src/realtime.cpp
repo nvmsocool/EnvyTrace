@@ -314,8 +314,8 @@ void Realtime::DrawArray(ImageData& id, int gui_w)
     &id.data[0][0]
   );
 
-  float x_prop = (double)(window_width - gui_w);
-  x_prop = 2 * (x_prop / (x_prop + (double)gui_w)) - 1;
+  float x_prop = (float)(window_width - gui_w);
+  x_prop = 2 * (x_prop / (x_prop + (float)gui_w)) - 1;
 
   glBegin(GL_QUADS);
   glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0, -1.0);

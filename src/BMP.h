@@ -15,7 +15,7 @@ unsigned int HDRToSDR(float hdr)
 {
   float tone_mapped = hdr;
   float capped = tone_mapped > 1 ? 1 : tone_mapped;
-  return 255 * capped;
+  return (size_t)(255 * capped);
 }
 
 void generateBitmapImage(ImageData &id, const char *imageFileName)
@@ -23,7 +23,8 @@ void generateBitmapImage(ImageData &id, const char *imageFileName)
 
   unsigned char *image_flat = new unsigned char[id.h * id.w * BYTES_PER_PIXEL];
 
-  for (int i = 0; i < id.data.size(); i++) {
+  for (size_t i = 0; i < id.data.size(); i++) 
+  {
     image_flat[i * 3 + 2] = HDRToSDR(id.data[i][0]); ///red
     image_flat[i * 3 + 1] = HDRToSDR(id.data[i][1]); ///green
     image_flat[i * 3 + 0] = HDRToSDR(id.data[i][2]); ///blue

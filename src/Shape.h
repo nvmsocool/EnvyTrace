@@ -41,20 +41,14 @@ public:
     , Radius(_Radius)
   {
     this->material = m;
-    this->BoundingBox = Eigen::AlignedBox<float, 3>(
-      Center - Eigen::Vector3f::Ones() * Radius,
-      Center + Eigen::Vector3f::Ones() * Radius
-    );
-    this->Position = Center;
-    this->SurfaceArea = 4 * 3.14159 * Radius * Radius;
     this->name = "Sphere";
+    ResetSettings();
   };
   ~Sphere() {};
   void Intersect(const Ray &in, Intersection &i);
   void GetRandomPointOn(Intersection &I);
-  bool RenderGUI(int i) { 
-    return ImGui::InputFloat((std::string("radius##")+std::to_string(i)).data(), &Radius); 
-  };
+  void ResetSettings();
+  bool RenderGUI(int i);
 
   float Radius;
   Eigen::Vector3f Center;
@@ -70,22 +64,14 @@ public:
     , extents(_extents)
   {
     this->material = m;
-    this->BoundingBox = Eigen::AlignedBox<float, 3>(
-      base,
-      base + extents
-    );
-    this->Position = base + extents / 2.f;
-    this->SurfaceArea =
-      2 * extents.x() * extents.y() +
-      2 * extents.x() * extents.z() +
-      2 * extents.y() * extents.z();
     this->name = "box";
+    ResetSettings();
   };
   ~Box() {};
   void Intersect(const Ray &in, Intersection &i);
-  bool RenderGUI(int i) { return false; };
+  void ResetSettings();
+  bool RenderGUI(int i);
 
-  Eigen::Vector3f n_x, n_y, n_z;
   Eigen::Vector3f base, extents;
 
 };
@@ -96,33 +82,16 @@ public:
   Triangle() {};
   Triangle(Eigen::Vector3f _p1, Eigen::Vector3f _p2, Eigen::Vector3f _p3, Material *m)
     : p1(_p1), p2(_p2), p3(_p3)
-    , e1(p2 - p1), e2(p3 - p1)
   {
     this->name = "Triangle";
-    Eigen::Vector3f flatNorm = e2.cross(e1).normalized();
-    n1 = flatNorm;
-    n2 = flatNorm;
-    n3 = flatNorm;
     this->material = m;
 
-    this->BoundingBox = Eigen::AlignedBox<float, 3>(
-      Eigen::Vector3f(
-        (std::min)(p1.x(), (std::min)(p2.x(), p3.x())),
-        (std::min)(p1.y(), (std::min)(p2.y(), p3.y())),
-        (std::min)(p1.z(), (std::min)(p2.z(), p3.z()))
-      ),
-      Eigen::Vector3f(
-        (std::max)(p1.x(), (std::max)(p2.x(), p3.x())),
-        (std::max)(p1.y(), (std::max)(p2.y(), p3.y())),
-        (std::max)(p1.z(), (std::max)(p2.z(), p3.z())))
-    );
-    this->Position = (p1 + p2 + p3) / 3;
-    this->SurfaceArea = e2.cross(e1).norm() / 2;
+    ResetSettings();
   };
   ~Triangle() {};
+  void ResetSettings();
   void Intersect(const Ray &in, Intersection &i);
-  bool RenderGUI(int i) { return false;
-  };
+  bool RenderGUI(int i);
   inline void SetNormals(Eigen::Vector3f _n1, Eigen::Vector3f _n2, Eigen::Vector3f _n3)
   {
     n1 = _n1.normalized();
@@ -153,30 +122,13 @@ public:
     this->material = m;
     this->name = "Cylinder";
 
-    Eigen::Vector3f minB = Base + Eigen::Vector3f::Ones() * _radius;
-    Eigen::Vector3f maxB = Base - Eigen::Vector3f::Ones() * _radius;
-    Eigen::Vector3f minA = Base + Axis + Eigen::Vector3f::Ones() * _radius;
-    Eigen::Vector3f maxA = Base + Axis - Eigen::Vector3f::Ones() * _radius;
-
-    this->BoundingBox = Eigen::AlignedBox<float, 3>(
-      Eigen::Vector3f(
-        (std::min)((std::min)(minB.x(), maxB.x()), (std::min)(minA.x(), maxA.x())),
-        (std::min)((std::min)(minB.y(), maxB.y()), (std::min)(minA.y(), maxA.y())),
-        (std::min)((std::min)(minB.z(), maxB.z()), (std::min)(minA.z(), maxA.z()))
-      ),
-      Eigen::Vector3f(
-        (std::max)((std::max)(minB.x(), maxB.x()), (std::max)(minA.x(), maxA.x())),
-        (std::max)((std::max)(minB.y(), maxB.y()), (std::max)(minA.y(), maxA.y())),
-        (std::max)((std::max)(minB.z(), maxB.z()), (std::max)(minA.z(), maxA.z()))
-      )
-    );
-    this->Position = Base + Axis / 2.f;
-    this->SurfaceArea = 2 * 3.14159 * radius * (Axis.norm() + radius);
+    ResetSettings();
 
   };
   ~Cylinder() {};
+  void ResetSettings();
   void Intersect(const Ray &in, Intersection &i);
-  bool RenderGUI(int i) { return false; };
+  bool RenderGUI(int i);
 
   Eigen::Vector3f Base, Axis;
   float radius;
@@ -195,8 +147,8 @@ public:
     Scale = _Scale;
     Center = _Center;
     this->BoundingBox = Eigen::AlignedBox<float, 3>(
-      Center - Eigen::Vector3f::Ones() * Scale * 10,
-      Center + Eigen::Vector3f::Ones() * Scale * 10
+      -Eigen::Vector3f::Ones() * 1000,
+      Eigen::Vector3f::Ones() * 1000
       );
     this->Position = Center;
     rot_eulers = QuatToEuler(_rot);
@@ -211,6 +163,7 @@ public:
     num_subdivisions = _subdivisions;
   }
   bool RenderGUI(int i);
+
   int max_iteration{ 100 };
   float min_distance{ 0.001f };
   int num_subdivisions{ 11 };
@@ -218,8 +171,7 @@ public:
   float Scale;
   Eigen::Vector3f Center, rot_eulers;
   Eigen::Quaternionf rot, rot_inv;
-
-  Eigen::Vector3f lum{ Eigen::Vector3f(0.2126f, 0.7152f, 0.0722f) };
+  bool flat_color = false;
 
   struct ActionData {
     int action_type;
@@ -246,8 +198,6 @@ public:
   float DE_Sphere(Eigen::Vector3f p);
   float DE_Generic(Eigen::Vector3f p);
 
-  Eigen::Vector3f GridColor(Eigen::Vector3f p);
-  Eigen::Vector3f FlatColor(Eigen::Vector3f p);
   Eigen::Vector3f FoldBased(Eigen::Vector3f p);
 
   int NumFolds();

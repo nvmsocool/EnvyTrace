@@ -350,8 +350,8 @@ void DrawGUI()
   {
     ImGui::Indent(16.0f);
 
-    ImGui::InputFloat("cammovespeed", &cam_speed_move);
-    ImGui::InputFloat("camrotspeed", &cam_speed_rot);
+    ImGui::DragFloat("move_speed", &cam_speed_move, 0.01f);
+    ImGui::DragFloat("rot_speed", &cam_speed_rot, 0.01f);
     if (ImGui::Checkbox("depth_of_field", &scene->depth_of_field))
     {
       ResetTrace();
@@ -359,9 +359,9 @@ void DrawGUI()
     if (scene->depth_of_field)
     {
       ImGui::Indent(10.f);
-      if (ImGui::InputFloat("dof_w", &scene->camera.w))
+      if (ImGui::DragFloat("dof_w", &scene->camera.w, 0.001f, 0.0, 100, "%.3f"))
         ResetTrace();
-      if(ImGui::InputFloat("dof_f", &scene->camera.f))
+      if(ImGui::DragFloat("dof_f", &scene->camera.f, 0.01f, 0.f, 10000.f, "%2f"))
         ResetTrace();
       ImGui::Unindent(10.f);
     }
@@ -369,7 +369,7 @@ void DrawGUI()
     {
       ResetTrace();
     }
-    if (ImGui::DragFloat("camera_fov", &scene->camera.ry, 0.01f, 0.01f, 1.0f, "%.2f"))
+    if (ImGui::DragFloat("fov", &scene->camera.ry, 0.01f, 0.01f, 1.0f, "%.2f"))
     {
       scene->camera.UpdateFOV(image.w, image.h);
       ResetTrace();

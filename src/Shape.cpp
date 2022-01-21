@@ -53,6 +53,29 @@ void Sphere::GetRandomPointOn(Intersection &I)
   I.object = this;
 }
 
+void Sphere::ResetSettings()
+{
+  this->BoundingBox = Eigen::AlignedBox<float, 3>(
+    Center - Eigen::Vector3f::Ones() * Radius,
+    Center + Eigen::Vector3f::Ones() * Radius
+    );
+  this->Position = Center;
+  this->SurfaceArea = 4 * 3.14159 * Radius * Radius;
+}
+
+bool Sphere::RenderGUI(int i)
+{
+  bool changed = false;
+  changed |= ImGui::DragFloat((std::string("radius##") + std::to_string(i)).data(), &Radius, 0.1f, 0.0f, 10000.f, "%.1");
+  changed |= ImGui::DragFloat3((std::string("radius##") + std::to_string(i)).data(), Center.data(), 0.01f, -10000, 10000, "%.2f");
+
+  if (changed)
+  {
+    ResetSettings();
+  }
+  return changed;
+}
+
 void Box::Intersect(const Ray &in, Intersection &i)
 {
   // intersect slabs
@@ -87,6 +110,57 @@ void Box::Intersect(const Ray &in, Intersection &i)
   //get normal?
   //get uv
 
+}
+
+void Box::ResetSettings()
+{
+  this->BoundingBox = Eigen::AlignedBox<float, 3>(
+    base,
+    base + extents
+    );
+  this->Position = base + extents / 2.f;
+  this->SurfaceArea =
+    2 * extents.x() * extents.y() +
+    2 * extents.x() * extents.z() +
+    2 * extents.y() * extents.z();
+}
+
+bool Box::RenderGUI(int i)
+{
+  bool changed = false;
+  changed |= ImGui::DragFloat3((std::string("base##") + std::to_string(i)).data(), base.data(), 0.01f, -10000, 10000, "%.2f");
+  changed |= ImGui::DragFloat3((std::string("radius##") + std::to_string(i)).data(), extents.data(), 0.01f, -10000, 10000, "%.2f");
+
+  if (changed)
+  {
+    ResetSettings();
+  }
+  return changed;
+}
+
+void Triangle::ResetSettings()
+{
+  e1 = p2 - p1;
+  e2 = p3 - p1;
+
+  Eigen::Vector3f flatNorm = e2.cross(e1).normalized();
+  n1 = flatNorm;
+  n2 = flatNorm;
+  n3 = flatNorm;
+
+  this->BoundingBox = Eigen::AlignedBox<float, 3>(
+    Eigen::Vector3f(
+      (std::min)(p1.x(), (std::min)(p2.x(), p3.x())),
+      (std::min)(p1.y(), (std::min)(p2.y(), p3.y())),
+      (std::min)(p1.z(), (std::min)(p2.z(), p3.z()))
+    ),
+    Eigen::Vector3f(
+      (std::max)(p1.x(), (std::max)(p2.x(), p3.x())),
+      (std::max)(p1.y(), (std::max)(p2.y(), p3.y())),
+      (std::max)(p1.z(), (std::max)(p2.z(), p3.z())))
+    );
+  this->Position = (p1 + p2 + p3) / 3;
+  this->SurfaceArea = e2.cross(e1).norm() / 2;
 }
 
 void Triangle::Intersect(const Ray &in, Intersection &i)
@@ -132,6 +206,45 @@ void Triangle::Intersect(const Ray &in, Intersection &i)
   i.object = this;
   i.uv = (1 - u - v) * t1 + u * t2 + v * t3;
   i.Calc_IOR_Ratio(-in.direction);
+}
+
+bool Triangle::RenderGUI(int i)
+{
+  bool changed = false;
+
+  changed |= ImGui::DragFloat3((std::string("p1##") + std::to_string(i)).data(), p1.data(), 0.01f, -10000, 10000, "%.2f");
+  changed |= ImGui::DragFloat3((std::string("p2##") + std::to_string(i)).data(), p2.data(), 0.01f, -10000, 10000, "%.2f");
+  changed |= ImGui::DragFloat3((std::string("p3##") + std::to_string(i)).data(), p3.data(), 0.01f, -10000, 10000, "%.2f");
+
+  if (changed)
+  {
+    ResetSettings();
+  }
+  return changed;
+}
+
+void Cylinder::ResetSettings()
+{
+
+  Eigen::Vector3f minB = Base + Eigen::Vector3f::Ones() * radius;
+  Eigen::Vector3f maxB = Base - Eigen::Vector3f::Ones() * radius;
+  Eigen::Vector3f minA = Base + Axis + Eigen::Vector3f::Ones() * radius;
+  Eigen::Vector3f maxA = Base + Axis - Eigen::Vector3f::Ones() * radius;
+
+  this->BoundingBox = Eigen::AlignedBox<float, 3>(
+    Eigen::Vector3f(
+      (std::min)((std::min)(minB.x(), maxB.x()), (std::min)(minA.x(), maxA.x())),
+      (std::min)((std::min)(minB.y(), maxB.y()), (std::min)(minA.y(), maxA.y())),
+      (std::min)((std::min)(minB.z(), maxB.z()), (std::min)(minA.z(), maxA.z()))
+    ),
+    Eigen::Vector3f(
+      (std::max)((std::max)(minB.x(), maxB.x()), (std::max)(minA.x(), maxA.x())),
+      (std::max)((std::max)(minB.y(), maxB.y()), (std::max)(minA.y(), maxA.y())),
+      (std::max)((std::max)(minB.z(), maxB.z()), (std::max)(minA.z(), maxA.z()))
+    )
+    );
+  this->Position = Base + Axis / 2.f;
+  this->SurfaceArea = 2 * 3.14159 * radius * (Axis.norm() + radius);
 }
 
 void Cylinder::Intersect(const Ray &in, Intersection &i)
@@ -204,6 +317,24 @@ void Cylinder::Intersect(const Ray &in, Intersection &i)
 
 }
 
+bool Cylinder::RenderGUI(int i)
+{
+  bool changed = false;
+
+  Eigen::Vector3f Base, Axis;
+  float radius;
+
+  changed |= ImGui::DragFloat3((std::string("Base##") + std::to_string(i)).data(), Base.data(), 0.01f, -10000, 10000, "%.2f");
+  changed |= ImGui::DragFloat3((std::string("Axis##") + std::to_string(i)).data(), Axis.data(), 0.01f, -10000, 10000, "%.2f");
+  changed |= ImGui::DragFloat((std::string("Radius##") + std::to_string(i)).data(), &radius, 0.01f, -10000, 10000, "%.2f");
+
+  if (changed)
+  {
+    ResetSettings();
+  }
+  return changed;
+}
+
 static const Eigen::Vector3f norm_step_x(1.f, 0.0f, 0.0f);
 static const Eigen::Vector3f norm_step_y(0.0f, 1.f, 0.0f);
 static const Eigen::Vector3f norm_step_z(0.0f, 0.0f, 1.f);
@@ -217,7 +348,7 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
   float dist = 0;
   int colorsteps = 0;
   int totalColorSteps = max_iteration;
-  //float lastEst = 0;
+
   for (int steps = 0; steps < max_iteration; steps++)
   {
     Eigen::Vector3f p = in.origin + dist * in.direction;
@@ -230,19 +361,34 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       i.P = in.eval(i.t);
       i.object = this;
       i.Calc_IOR_Ratio(-in.direction);
-      float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * color_it_scale + color_it_add;
-      while (f > 1) f -= 1;
-      Eigen::Vector3f it_based = ColorFromFloat(f);
 
-      if (color_it_intensity < 0)
-        it_based *= (1 + color_it_intensity);
+      if (flat_color)
+      {
+        i.Kd = material->Kd;
+      }
       else
-        it_based += (Eigen::Vector3f::Ones() - it_based) * color_it_intensity;
+      {
+        Eigen::Vector3f it_based, fold_based;
+        if (color_it_fold_ratio > 0)
+        {
+          float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * color_it_scale + color_it_add;
+          while (f > 1) f -= 1;
+          it_based = ColorFromFloat(f);
+        }
 
-      Eigen::Vector3f fold_based = FoldBased(i.P);
+        if (color_it_fold_ratio < 1)
+        {
+          fold_based = FoldBased(i.P);
+        }
 
-      i.Kd = color_it_fold_ratio * it_based + (1.f - color_it_fold_ratio) * fold_based;
+        i.Kd = color_it_fold_ratio * it_based + (1.f - color_it_fold_ratio) * fold_based;
 
+        if (color_it_intensity < 0)
+          i.Kd *= (1 + color_it_intensity);
+        else
+          i.Kd += (Eigen::Vector3f::Ones() - i.Kd) * color_it_intensity;
+      }
+     
       //norm needs to be estimated
       Eigen::Vector3f step_back = in.origin + (dist - min_distance) * in.direction;
       float step_size = DE_Generic(step_back);
@@ -251,16 +397,11 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
         DE_Generic(step_back + step_size * norm_step_y) - DE_Generic(step_back - step_size * norm_step_y),
         DE_Generic(step_back + step_size * norm_step_z) - DE_Generic(step_back - step_size * norm_step_z)
       ).normalized();
+
       return;
     }
-    //if (estimate > lastEst)
-    {
-      //colorsteps = 1;
-    }
     colorsteps += 1;
-    //lastEst = estimate;
   }
-  //no intersection
 }
 
 #include "Eulers.h"
@@ -269,13 +410,22 @@ bool Fractal::RenderGUI(int n)
 {
   bool something_changed = false;
 
+  ImGui::Text("Marching");
+  ImGui::Indent(5.f);
   something_changed |= ImGui::InputInt((std::string("max_iteration") + std::to_string(n)).data(), &max_iteration);
   something_changed |= ImGui::DragFloat((std::string("min_distance") + std::to_string(n)).data(), &min_distance, 0.00001f, 0.0f, 1000.0f, "%.5f");
   something_changed |= ImGui::InputInt((std::string("num_subdivisions") + std::to_string(n)).data(), &num_subdivisions);
+  ImGui::Unindent(5.f);
 
   ImGui::Separator();
 
-  something_changed |= ImGui::DragFloat3((std::string("center") + std::to_string(n)).data(), Center.data(), 0.01f, -10000, 10000, "%.2f");
+  ImGui::Text("Transform");
+  ImGui::Indent(5.f);
+  if (ImGui::DragFloat3((std::string("center") + std::to_string(n)).data(), Center.data(), 0.01f, -10000, 10000, "%.2f"))
+  {
+    something_changed = true;
+    this->Position = Center;
+  }
   something_changed |= ImGui::DragFloat((std::string("scale") + std::to_string(n)).data(), &Scale, 0.001f, 0, 100000, "%.3f");
   if (ImGui::DragFloat3((std::string("rotation") + std::to_string(n)).data(), &rot_eulers[0], 0.1f, -180, 180, "%.1f"))
   {
@@ -283,13 +433,20 @@ bool Fractal::RenderGUI(int n)
     rot = EulerToQuat(rot_eulers);
     rot_inv = rot.inverse();
   }
+  ImGui::Unindent(5.f);
 
   ImGui::Separator();
+  ImGui::Text("Color");
+  ImGui::Indent(5.f);
+  something_changed |= ImGui::SliderFloat((std::string("ratio") + std::to_string(n)).data(), &color_it_fold_ratio, 0.f, 1.f);
+  something_changed |= ImGui::SliderFloat((std::string("intensity") + std::to_string(n)).data(), &color_it_intensity, -1.f, 1.f);
+  something_changed |= ImGui::SliderFloat((std::string("it_add") + std::to_string(n)).data(), &color_it_add, 0.f, 1.f);
+  something_changed |= ImGui::DragFloat((std::string("it_scale") + std::to_string(n)).data(), &color_it_scale, 0.1f, 0.f, 1000.f, "%.1f");
+  ImGui::Unindent(5.f);
 
-  something_changed |= ImGui::SliderFloat((std::string("color_it_add") + std::to_string(n)).data(), &color_it_add, 0.f, 1.f);
-  something_changed |= ImGui::DragFloat((std::string("color_it_scale") + std::to_string(n)).data(), &color_it_scale, 0.1f, 0.f, 1000.f, "%.1f");
-  something_changed |= ImGui::SliderFloat((std::string("color_it_fold_ratio") + std::to_string(n)).data(), &color_it_fold_ratio, 0.f, 1.f);
-  something_changed |= ImGui::SliderFloat((std::string("color_it_intensity") + std::to_string(n)).data(), &color_it_intensity, -1.f, 1.f);
+  ImGui::Separator();
+  ImGui::Text("Actions:");
+  ImGui::Indent(5.f);
 
   for (size_t i = 0; i < CombinedActions.size(); i++)
   {
@@ -309,6 +466,8 @@ bool Fractal::RenderGUI(int n)
       case 0:
         // fold
         CombinedActions[i].DisplayOp = Eigen::Vector3f(1, 0, 0);
+        CombinedActions[i].VecOp = Eigen::Vector3f(1, 0, 0);
+        CombinedActions[i].VecOp2 = Eigen::Vector3f(2, 0, 0);
         break;
       case 1:
         //rotation
@@ -334,6 +493,7 @@ bool Fractal::RenderGUI(int n)
       {
         something_changed = true;
         CombinedActions[i].VecOp = CombinedActions[i].DisplayOp.normalized();
+        CombinedActions[i].VecOp2 = 2 * CombinedActions[i].DisplayOp.normalized();
       }
       if (ImGui::DragFloat3(("fold_color" + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].Color.data(), 0.01f, 0.f, 1.f, "%.2f"))
       {
@@ -380,6 +540,8 @@ bool Fractal::RenderGUI(int n)
       }
     }
   }
+  
+  ImGui::Unindent(5.f);
   return something_changed;
 }
 
@@ -461,22 +623,6 @@ void Fractal::Action_Translate(Eigen::Vector3f &p, int trans_index)
   p = p + CombinedActions[trans_index].VecOp;
 }
 
-Eigen::Vector3f Fractal::GridColor(Eigen::Vector3f p)
-{
-  float x, y;
-  modf(p.x(), &x);
-  modf(p.y(), &y);
-  float x_rand = static_cast<float>(static_cast<int>(x * 123456.789f) % 100) / 100.f;
-  float y_rand = static_cast<float>(static_cast<int>(y * 123456.789f) % 100) / 100.f;
-  return Eigen::Vector3f(x_rand, y_rand, 0.5f);
-}
-
-Eigen::Vector3f Fractal::FlatColor(Eigen::Vector3f p)
-{
-  return this->material->Kd;
-}
-
-
 Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
 {
   Eigen::Vector3f c(1.0, 1.0, 1.0);
@@ -556,7 +702,6 @@ bool Shape::RenderGenericGUI(int shape_num)
   if (ImGui::CollapsingHeader(name.data())) {
     ImGui::Indent(10.f);
     something_changed |= material->RenderGUI(shape_num);
-    something_changed |= ImGui::InputFloat3((std::string("position") + std::to_string(shape_num)).data(), Position.data());
     something_changed |= this->RenderGUI(shape_num);
     ImGui::Unindent(10.f);
   }

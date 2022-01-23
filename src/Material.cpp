@@ -38,6 +38,22 @@ float Material::G_1(Eigen::Vector3f w, Eigen::Vector3f h, Eigen::Vector3f N)
   return g;
 }
 
+std::string Material::Serialize()
+{
+  std::string ret = "brdf ";
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(Kd[i]) + " ";
+  }
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(Ks[i]) + " ";
+  }
+  ret += std::to_string(alpha) + " ";
+  ret += std::to_string(specularity) + " ";
+  return ret;
+}
+
 bool Light::RenderGUI(int shape_num)
 {
   bool something_changed = false;
@@ -47,6 +63,34 @@ bool Light::RenderGUI(int shape_num)
     ImGui::Indent(10.f);
     something_changed |= ImGui::DragFloat3((std::string("light val##") + std::to_string(shape_num)).data(), light_value.data(), 0.1f, 0, 1000000, "%.1f");
     something_changed |= Material::RenderGUI(shape_num);
+    ImGui::Unindent(10.f);
+  }
+
+  return something_changed;
+}
+
+std::string Light::Serialize()
+{
+  std::string ret = "light ";
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(light_value[i]) + " ";
+  }
+  return ret;
+}
+
+bool Material::RenderGUI(int shape_num)
+{
+  bool something_changed = false;
+
+  if (ImGui::CollapsingHeader("material"))
+  {
+    ImGui::Indent(10.f);
+    something_changed |= ImGui::SliderFloat3((std::string("Kd##") + std::to_string(shape_num)).data(), Kd.data(), 0, 1, "%.2f");
+    something_changed |= ImGui::SliderFloat3((std::string("Ks##") + std::to_string(shape_num)).data(), Ks.data(), 0, 1, "%.2f");
+
+    something_changed |= ImGui::DragFloat((std::string("alpha##") + std::to_string(shape_num)).data(), &alpha, 0.01f, 0, 10000, "%.2f");
+    something_changed |= ImGui::SliderFloat((std::string("specularity##") + std::to_string(shape_num)).data(), &specularity, 0, 1, "%.2f");
     ImGui::Unindent(10.f);
   }
 

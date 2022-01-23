@@ -49,6 +49,7 @@ public:
   void GetRandomPointOn(Intersection &I);
   void ResetSettings();
   bool RenderGUI(int i);
+  virtual std::string Serialize();
 
   float Radius;
   Eigen::Vector3f Center;
@@ -71,42 +72,9 @@ public:
   void Intersect(const Ray &in, Intersection &i);
   void ResetSettings();
   bool RenderGUI(int i);
+  virtual std::string Serialize();
 
   Eigen::Vector3f base, extents;
-
-};
-
-class Triangle : public Shape
-{
-public:
-  Triangle() {};
-  Triangle(Eigen::Vector3f _p1, Eigen::Vector3f _p2, Eigen::Vector3f _p3, Material *m)
-    : p1(_p1), p2(_p2), p3(_p3)
-  {
-    this->name = "Triangle";
-    this->material = m;
-
-    ResetSettings();
-  };
-  ~Triangle() {};
-  void ResetSettings();
-  void Intersect(const Ray &in, Intersection &i);
-  bool RenderGUI(int i);
-  inline void SetNormals(Eigen::Vector3f _n1, Eigen::Vector3f _n2, Eigen::Vector3f _n3)
-  {
-    n1 = _n1.normalized();
-    n2 = _n2.normalized();
-    n3 = _n3.normalized();
-  };
-  inline void SetTextureUV(Eigen::Vector2f _t1, Eigen::Vector2f _t2, Eigen::Vector2f _t3)
-  {
-    t1 = _t1;
-    t2 = _t2;
-    t3 = _t3;
-  };
-
-  Eigen::Vector3f p1, p2, p3, e1, e2, n1, n2, n3;
-  Eigen::Vector2f t1, t2, t3;
 
 };
 
@@ -163,6 +131,7 @@ public:
     num_subdivisions = _subdivisions;
   }
   bool RenderGUI(int i);
+  virtual std::string Serialize();
 
   int max_iteration{ 100 };
   float min_distance{ 0.001f };

@@ -1,8 +1,3 @@
-////////////////////////////////////////////////////////////////////////////////
-// Temporary code.  Remove this from your raytracer.  This displays
-// the contents of a scene file in realtime in a GLUT window.
-////////////////////////////////////////////////////////////////////////////////
-
 #pragma once
 
 #include <string>
@@ -10,7 +5,6 @@
 #include <vector>
 
 #include "imgui.h"
-//#include "backends/imgui_impl_glut.h"
 #include "backends/imgui_impl_opengl2.h"
 
 #include <glbinding/gl/gl.h>
@@ -48,19 +42,15 @@ public:
     int window_width, window_height;
     int displaywindow, consolewindow;
     bool closed;
-    bool needs_resize{ false };
     HWND display_handle;
-    void setScreen(const int _width, const int _height) { window_width=_width;  window_height=_height; }
     bool isWindowActive();
 
     void DrawArray(ImageData& id, int gui_w);
     void FinishDrawing();
     void UpdateEvent();
     void ReshapeWindow(int w, int h);
-    void RequestResize(int w, int h);
 
     Realtime(int w, int h);
-    void setup();
 };
 
 

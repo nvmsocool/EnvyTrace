@@ -7,7 +7,6 @@
 #include <fstream>
 #include <vector>
 
-#include "geom.h"
 #include "raytrace.h"
 #include "realtime.h"
 
@@ -209,12 +208,13 @@ static const char *WINDOW_NAME = "EnvyTrace";
 static const LPCWSTR WINDOW_NAME_WSTR = L"EnvyTrace";
 
 // Stupid C++ needs callbacks to be static functions.
-static Realtime* globalRealtime = nullptr;
-void CBReshapeWindow(int w, int h)  
-{ 
-  globalRealtime->ReshapeWindow(w,h);
-  ImGui_ImplGLUT_ReshapeFunc(w,h);
+static Realtime *globalRealtime = nullptr;
+void CBReshapeWindow(int w, int h)
+{
+  globalRealtime->ReshapeWindow(w, h);
 }
+
+void DummyDisplayFunc() {};
 
 void CloseFunc()
 {
@@ -233,61 +233,53 @@ void CloseFunc()
 // Constructor for Realtime.  Initializes OpenGL, GLUT,as well as the
 // data elements of the class.
 Realtime::Realtime(int w, int h)
-{   
-    // Initialize the OpenGL bindings
-    glbinding::Binding::initialize(false);
-
-    globalRealtime = this;
-    // Initialize GLUT
-    int argc = 0;
-    char* argv;
-    closed = false;
-    
-    glutInit(&argc, &argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    glutInitContextVersion (3, 3);
-    glutInitContextProfile(GLUT_COMPATIBILITY_PROFILE);
-
-    setScreen(w, h);
-    glutInitWindowSize(w, h);
-    glutCreateWindow(WINDOW_NAME);
-    glutSetOption((GLenum)GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-    displaywindow = glutGetWindow();
-    display_handle = FindWindow(NULL, WINDOW_NAME_WSTR);
-
-    glutReshapeFunc(&CBReshapeWindow);
-    glutCloseFunc(&CloseFunc);
-
-    printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
-    printf("GLSL Version: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-    printf("Rendered by: %s\n", glGetString(GL_RENDERER));
-    fflush(stdout); 
-
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO(); 
-    (void)io;
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsClassic();
-    
-    // Setup Platform/Renderer backends
-    ImGui_ImplGLUT_Init();
-    ImGui_ImplGLUT_InstallFuncs();
-    ImGui_ImplOpenGL2_Init();
-
-    ImGui_ImplGLUT_ReshapeFunc(w, h);
-
-}
-
-void Realtime::setup()
 {
-  glutReshapeWindow(window_width, window_height);
-  ReshapeWindow(window_width, window_height);
+  // Initialize the OpenGL bindings
+  glbinding::Binding::initialize(false);
+
+  globalRealtime = this;
+  // Initialize GLUT
+  int argc = 0;
+  char *argv;
+  closed = false;
+
+  glutInit(&argc, &argv);
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+  glutInitContextVersion(3, 3);
+  glutInitContextProfile(GLUT_COMPATIBILITY_PROFILE);
+
+  glutInitWindowSize(w, h);
+  glutCreateWindow(WINDOW_NAME);
+  glutSetOption((GLenum)GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+  displaywindow = glutGetWindow();
+  display_handle = FindWindow(NULL, WINDOW_NAME_WSTR);
+
+  glutDisplayFunc(&DummyDisplayFunc);
+  glutReshapeFunc(&CBReshapeWindow);
+  glutCloseFunc(&CloseFunc);
+
+  printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
+  printf("GLSL Version: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+  printf("Rendered by: %s\n", glGetString(GL_RENDERER));
+  fflush(stdout);
+
+
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO &io = ImGui::GetIO();
+  (void)io;
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplGLUT_Init();
+  ImGui_ImplGLUT_InstallFuncs();
+  ImGui_ImplOpenGL2_Init();
+
+  ReshapeWindow(w, h);
+
 }
 
 bool Realtime::isWindowActive()
@@ -295,7 +287,7 @@ bool Realtime::isWindowActive()
   return GetForegroundWindow() == FindWindow(NULL, WINDOW_NAME_WSTR) && !closed;
 }
 
-void Realtime::DrawArray(ImageData& id, int gui_w)
+void Realtime::DrawArray(ImageData &id, int gui_w)
 {
 
   if (closed) return;
@@ -314,14 +306,42 @@ void Realtime::DrawArray(ImageData& id, int gui_w)
     &id.data[0][0]
   );
 
-  float x_prop = (float)(window_width - gui_w);
-  x_prop = 2 * (x_prop / (x_prop + (float)gui_w)) - 1;
+  float useable_w = (float)(window_width - gui_w);
+
+  float image_ar = (float)id.w / (float)id.h;
+  float viewing_ar = useable_w / (float)window_height;
+
+  float top = 1;
+  float bottom = -1;
+  float left = -1;
+  float right = 1;
+  if (image_ar > viewing_ar)
+  {
+    //image is too wide, chop top/bottom
+    right = 2 * (useable_w / (useable_w + (float)gui_w)) - 1;
+    float shrunken_y = useable_w / image_ar;
+    top = 1.f - (1.f - (shrunken_y / (float)window_height)) / 2.f;
+    bottom = -top;
+  }
+  else
+  {
+    // image is too tall, chop left/right
+    float shrunken_x = window_height * image_ar;
+    float x_pad = (window_width - (gui_w + shrunken_x)) / 2.f;
+    left = 2 * (x_pad/window_width) - 1;
+    right = 2 * ((x_pad + shrunken_x) / window_width) - 1;
+  }
 
   glBegin(GL_QUADS);
-  glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0, -1.0);
-  glTexCoord2f(1.0f, 0.0f); glVertex2f(x_prop, -1.0);
-  glTexCoord2f(1.0f, 1.0f); glVertex2f(x_prop, 1.0);
-  glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0, 1.0);
+  //lower left
+  glTexCoord2f(0.0f, 0.0f); glVertex2f(left, bottom);
+  //lower right
+  glTexCoord2f(1.0f, 0.0f); glVertex2f(right, bottom);
+  //upper right
+  glTexCoord2f(1.0f, 1.0f); glVertex2f(right, top);
+  //upper left
+  glTexCoord2f(0.0f, 1.0f); glVertex2f(left, top);
+
   glEnd();
 
 
@@ -335,36 +355,18 @@ void Realtime::FinishDrawing()
 
 void Realtime::UpdateEvent()
 {
-
   glutMainLoopEvent();
 }
 
 // Called by GLUT when the window size is changed.
 void Realtime::ReshapeWindow(int w, int h)
 {
-    if (w && h)
-        glViewport(0, 0, w, h);
-    window_width = w;
-    window_height = h;
-    needs_resize = true;
-    ImGui_ImplGLUT_ReshapeFunc(w, h);
+  window_width = w;
+  window_height = h;
+  if (w && h)
+    glViewport(0, 0, w, h);
+  ImGui_ImplGLUT_ReshapeFunc(w, h);
 
-    // Force a redraw
-    glutPostRedisplay();
-}
-
-void Realtime::RequestResize(int w, int h)
-{
-  //destroy and start again
-  setScreen(w, h);
-
-  glutDestroyWindow(displaywindow);
-
-  glutInitWindowSize(w, h);
-  glutCreateWindow(WINDOW_NAME);
-  glutSetOption((GLenum)GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-  glutReshapeWindow(window_width, window_height);
-  ReshapeWindow(window_width, window_height);
-  displaywindow = glutGetWindow();
-  display_handle = FindWindow(NULL, WINDOW_NAME_WSTR);
+  // Force a redraw
+  glutPostRedisplay();
 }

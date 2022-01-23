@@ -58,12 +58,13 @@ public:
 
     std::vector<Sphere> spheres;
     std::vector<Box> boxes;
-    std::vector<Triangle> triangles;
     std::vector<Cylinder> cylinders;
     std::vector<Fractal> fractals;
 
     std::vector<Material> materials;
     std::vector<Light> lights;
+
+    std::unordered_map<Material *, std::vector<Shape *>> shapes_by_material;
 
     KdBVH<float, 3, Shape *> Tree;
     bool depth_of_field{ false };
@@ -87,7 +88,6 @@ public:
     Scene();
     void Finit();
     void ClearAll();
-    // void ReCalcDirs();
 
     // The scene reader-parser will call the Command method with the
     // contents of each line in the scene file.
@@ -97,16 +97,9 @@ public:
     // To read a model file into the scene via ASSIMP, call ReadAssimpFile.  
     void ReadAssimpFile(const std::string& path, const Matrix4f& M);
 
-    // Once ReadAssimpFile parses the information from the model file,
-    // it will call:
-    void triangleMesh(MeshData* mesh);
-
     // The main program will call the TraceImage method to generate
     // and return the image.  This is the Ray Tracer!
     float TraceImage(ImageData &id, bool update_pass, int n_threads);
-
-    // Generates objects from mesh file
-    void GenTris(MeshData *md);
 
     inline void MoveCamera(Eigen::Vector3f p) {
       camera.Move(p);
@@ -117,6 +110,8 @@ public:
     inline void ChangeFOV(float w, float f) {
       camera.ChangeView(w, f);
     };
+
+    void ResizeImage();
 
     void SetRayDirect(ImageData &id, Ray &r, int x, int y);
     void SetRayAA(ImageData &id, Ray &r, int x, int y);

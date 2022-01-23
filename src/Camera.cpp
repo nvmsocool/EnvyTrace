@@ -26,10 +26,9 @@ void Camera::Rotate(Eigen::Quaternionf r)
   PrintSettings();
 }
 
-void Camera::ChangeView(float _w, float _f)
+void Camera::ChangeView(float _w, float _h)
 {
-  w = (std::max)(0.f, w + _w);
-  f = (std::max)(0.f, f + _f);
+  rx = ry * _w / _h;
   PrintSettings();
 }
 

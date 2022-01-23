@@ -22,8 +22,6 @@
 #include <Eigen_unsupported/Eigen/src/BVH/BVAlgorithms.h>
 #include "Eulers.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include <chrono>
 #include <stack>
 
@@ -55,11 +53,6 @@ void Scene::Finit()
     objects_p.push_back(&(boxes[i]));
     boxes[i].name += std::to_string(i);
   }
-  for (size_t i = 0; i < triangles.size(); i++)
-  {
-    objects_p.push_back(&(triangles[i]));
-    triangles[i].name += std::to_string(i);
-  }
   for (size_t i = 0; i < cylinders.size(); i++)
   {
     objects_p.push_back(&(cylinders[i]));
@@ -72,15 +65,12 @@ void Scene::Finit()
     fractals[i].name += std::to_string(i);
   }
   for (size_t i = 0; i < objects_p.size(); i++)
+  {
+    shapes_by_material[objects_p[i]->material].push_back(objects_p[i]);
     if (objects_p[i]->material->isLight())
       lights_p.push_back(objects_p[i]);
+  }
   Tree = KdBVH<float, 3, Shape *>(objects_p.begin(), objects_p.end());
-}
-
-void Scene::triangleMesh(MeshData *mesh)
-{
-  //realtime->triangleMesh(mesh);
-  GenTris(mesh);
 }
 
 Quaternionf Orientation(size_t i,
@@ -108,46 +98,25 @@ Quaternionf Orientation(size_t i,
   return q;
 }
 
-bool Material::RenderGUI(int shape_num)
+
+void Scene::ClearAll()
 {
-  bool something_changed = false;
+  objects_p.clear();
+  lights_p.clear();
 
-  if (ImGui::CollapsingHeader("material"))
-  {
-    ImGui::Indent(10.f);
-    something_changed |= ImGui::SliderFloat3((std::string("Kd##") + std::to_string(shape_num)).data(), Kd.data(), 0, 1, "%.2f");
-    something_changed |= ImGui::SliderFloat3((std::string("Ks##") + std::to_string(shape_num)).data(), Ks.data(), 0, 1, "%.2f");
-    something_changed |= ImGui::SliderFloat3((std::string("Kt##") + std::to_string(shape_num)).data(), Kt.data(), 0, 1, "%.2f");
+  spheres.clear();
+  spheres.reserve(100);
+  boxes.clear();
+  boxes.reserve(100);
+  cylinders.clear();
+  cylinders.reserve(100);
+  fractals.clear();
+  fractals.reserve(100);
 
-    something_changed |= ImGui::DragFloat((std::string("alpha##") + std::to_string(shape_num)).data(), &alpha, 0.01f, 0, 10000, "%.2f");
-    something_changed |= ImGui::SliderFloat((std::string("specularity##") + std::to_string(shape_num)).data(), &specularity, 0, 1, "%.2f");
-    ImGui::Unindent(10.f);
-  }
-
-  return something_changed;
-}
-
-////////////////////////////////////////////////////////////////////////
-// Material: encapsulates surface properties
-void Material::setTexture(const std::string path)
-{
-  int width, height, n;
-  stbi_set_flip_vertically_on_load(true);
-  unsigned char *image = stbi_load(path.c_str(), &width, &height, &n, 0);
-
-  // Realtime code below:  This sends the texture in *image to the graphics card.
-  // The raytracer will not use this code (nor any features of OpenGL nor the graphics card).
-  glGenTextures(1, &texid);
-  glBindTexture(GL_TEXTURE_2D, texid);
-  glTexImage2D(GL_TEXTURE_2D, 0, n, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 100);
-  glGenerateMipmap(GL_TEXTURE_2D);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  stbi_image_free(image);
+  materials.clear();
+  materials.reserve(100);
+  lights.clear();
+  lights.reserve(100);
 }
 
 void Scene::Command(const std::vector<std::string> &strings,
@@ -161,7 +130,7 @@ void Scene::Command(const std::vector<std::string> &strings,
     if (first_load)
     {
       realtime = new Realtime(int(f[1]) + gui_width, int(f[2]));
-      realtime->setScreen(int(f[1]) + gui_width, int(f[2]));
+      realtime->ReshapeWindow(int(f[1]) + gui_width, int(f[2]));
       requested_width = int(f[1]);
       requested_height = int(f[2]);
       first_load = false;
@@ -170,8 +139,6 @@ void Scene::Command(const std::vector<std::string> &strings,
     {
       requested_width = int(f[1]);
       requested_height = int(f[2]);
-      realtime->RequestResize(requested_width + gui_width, requested_height);
-
     }
   }
 
@@ -227,19 +194,6 @@ void Scene::Command(const std::vector<std::string> &strings,
     // syntax: cylinder bx by bz   ax ay az  r
     // Creates a Shape instance for a cylinder defined by a base point, axis vector, and radius
     cylinders.push_back(Cylinder(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], currentMat));
-  }
-
-
-  else if (c == "mesh") {
-    // syntax: mesh   filename   tx ty tz   s   <orientation>
-    // Creates many Shape instances (one per triangle) by reading
-    // model(s) from filename. All triangles are rotated by a
-    // quaternion (qw qx qy qz), uniformly scaled by s, and
-    // translated by (tx ty tz) .
-    Matrix4f modelTr = translate(Vector3f(f[2], f[3], f[4]))
-      * scale(Vector3f(f[5], f[5], f[5]))
-      * toMat4(Orientation(6, strings, f));
-    ReadAssimpFile(strings[1], modelTr);
   }
 
   else if (c == "fractal") {
@@ -330,15 +284,9 @@ float Scene::TraceImage(ImageData &id, bool update_pass, int n_threads)
 
 }
 
-void Scene::GenTris(MeshData *md)
+void Scene::ResizeImage()
 {
-  for (auto t : md->triangles)
-  {
-    triangles.push_back(Triangle(md->vertices[t[0]].pnt, md->vertices[t[1]].pnt, md->vertices[t[2]].pnt, currentMat));
-    Triangle *_t = &triangles[triangles.size() - 1];
-    _t->SetNormals(md->vertices[t[0]].nrm, md->vertices[t[1]].nrm, md->vertices[t[2]].nrm);
-    _t->SetTextureUV(md->vertices[t[0]].tex, md->vertices[t[1]].tex, md->vertices[t[2]].tex);
-  }
+  camera.ChangeView((float)requested_width, (float)requested_height);
 }
 
 void Scene::SetRayDirect(ImageData &id, Ray &r, int x, int y)
@@ -411,17 +359,11 @@ Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
     {
       for (auto l : lights_p) {
 
-        // VERY simple
-        //Eigen::Vector3f L = (l->Position - minimizer.closest_int.object->Position).normalized();
-        //float n_dot_l = minimizer.closest_int.N.dot(L);
-        //Eigen::Vector3f obj_color = minimizer.closest_int.Kd.x() > 0 ? minimizer.closest_int.Kd : minimizer.closest_int.object->material->Kd;
-        //color += (std::max)(0.0f, n_dot_l) * obj_color;
+        Eigen::Vector3f w_o = -r.direction;
+        Intersection &i = minimizer.closest_int;
+        Eigen::Vector3f w_i = (l->Position - i.P).normalized();
 
-         Eigen::Vector3f w_o = -r.direction;
-         Intersection &i = minimizer.closest_int;
-         Eigen::Vector3f w_i = (l->Position - i.P).normalized();
-         
-         color += static_cast<Light *>(l->material)->light_value.cwiseProduct(EvalScattering(w_o, i.N, w_i, i));
+        color += static_cast<Light *>(l->material)->light_value.cwiseProduct(EvalScattering(w_o, i.N, w_i, i));
       }
     }
     else if (mode == DEBUG_MODE::NORMAL)
@@ -435,7 +377,6 @@ Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
   }
   return color;
 }
-
 
 //assumes ray origin is set
 Intersection &Scene::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
@@ -472,7 +413,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 {
 
   Eigen::Vector3f color(0.001f, 0.001f, 0.001f);
-  Eigen::Vector3f weight(1,1,1);
+  Eigen::Vector3f weight(1, 1, 1);
 
   //initial
   minimizer.closest_int.Reset();
@@ -506,32 +447,32 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 
 
 #ifdef LOGGIN
-      log += std::to_string(w_o.x());
-      log += ",";
-      log += std::to_string(w_o.y());
-      log += ",";
-      log += std::to_string(w_o.z());
-      log += "(<-w_o)\n";
+    log += std::to_string(w_o.x());
+    log += ",";
+    log += std::to_string(w_o.y());
+    log += ",";
+    log += std::to_string(w_o.z());
+    log += "(<-w_o)\n";
 #endif
 
     // explicit light
     SampleLight(L);
     p = PdfLight(L.object) / GeometryFactor(P, L);
 #ifdef LOGGIN
-      log += std::to_string(p);
-      log += "(<- explicit p)\n";
+    log += std::to_string(p);
+    log += "(<- explicit p)\n";
 #endif
-    
+
     //check if p is positive, not necessary?
-    
+
     w_i = (L.P - P.P).normalized();
 #ifdef LOGGIN
-      log += std::to_string(w_i.x());
-      log += ",";
-      log += std::to_string(w_i.y());
-      log += ",";
-      log += std::to_string(w_i.z());
-      log += "(<-explicit w_i)\n";
+    log += std::to_string(w_i.x());
+    log += ",";
+    log += std::to_string(w_i.y());
+    log += ",";
+    log += std::to_string(w_i.z());
+    log += "(<-explicit w_i)\n";
 #endif
     Intersection &I = FireRayIntoScene(minimizer, w_i);
     if (I.object == L.object)
@@ -542,18 +483,18 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
       color += 0.5f * w_mis * weight.cwiseProduct(f).cwiseProduct(EvalRadiance(L)) / p;
 
 #ifdef LOGGIN
-        log += std::to_string(f.x());
-        log += ",";
-        log += std::to_string(f.y());
-        log += ",";
-        log += std::to_string(f.z());
-        log += "(<-explicit scattering)\n";
-        log += std::to_string(color.x());
-        log += ",";
-        log += std::to_string(color.y());
-        log += ",";
-        log += std::to_string(color.z());
-        log += "( <-explicit color added)\n";
+      log += std::to_string(f.x());
+      log += ",";
+      log += std::to_string(f.y());
+      log += ",";
+      log += std::to_string(f.z());
+      log += "(<-explicit scattering)\n";
+      log += std::to_string(color.x());
+      log += ",";
+      log += std::to_string(color.y());
+      log += ",";
+      log += std::to_string(color.z());
+      log += "( <-explicit color added)\n";
 #endif
 
     }
@@ -563,12 +504,12 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     w_i = SampleBRDF(w_o, N, P);
 
 #ifdef LOGGIN
-      log += std::to_string(w_i.x());
-      log += ",";
-      log += std::to_string(w_i.y());
-      log += ",";
-      log += std::to_string(w_i.z());
-      log += "(<-implicit w_i)\n";
+    log += std::to_string(w_i.x());
+    log += ",";
+    log += std::to_string(w_i.y());
+    log += ",";
+    log += std::to_string(w_i.z());
+    log += "(<-implicit w_i)\n";
 #endif
 
     Intersection &Q = FireRayIntoScene(minimizer, w_i);
@@ -586,16 +527,16 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     }
 
 #ifdef LOGGIN
-      log += std::to_string(f.x());
-      log += ",";
-      log += std::to_string(f.y());
-      log += ",";
-      log += std::to_string(f.z());
-      log += "(<-implicit scattering)\n";
-      log += std::to_string(p);
-      log += " (<-implicit p)\n";
-      log += Q.object->name;
-      log += " (<-name)\n";
+    log += std::to_string(f.x());
+    log += ",";
+    log += std::to_string(f.y());
+    log += ",";
+    log += std::to_string(f.z());
+    log += "(<-implicit scattering)\n";
+    log += std::to_string(p);
+    log += " (<-implicit p)\n";
+    log += Q.object->name;
+    log += " (<-name)\n";
 #endif
 
     if (p < 0.0001f)
@@ -604,12 +545,12 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     weight = weight.cwiseProduct(f / p);
 
 #ifdef LOGGIN
-      log += std::to_string(weight.x());
-      log += ",";
-      log += std::to_string(weight.y());
-      log += ",";
-      log += std::to_string(weight.z());
-      log += "(<-current weight)\n";
+    log += std::to_string(weight.x());
+    log += ",";
+    log += std::to_string(weight.y());
+    log += ",";
+    log += std::to_string(weight.z());
+    log += "(<-current weight)\n";
 #endif
 
     //light connection
@@ -621,22 +562,22 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
       color += 0.5 * w_mis * weight.cwiseProduct(EvalRadiance(Q));
 
 #ifdef LOGGIN
-        log += std::to_string(color.x());
-        log += ",";
-        log += std::to_string(color.y());
-        log += ",";
-        log += std::to_string(color.z());
-        log += "(<-implicit color added)\n";
+      log += std::to_string(color.x());
+      log += ",";
+      log += std::to_string(color.y());
+      log += ",";
+      log += std::to_string(color.z());
+      log += "(<-implicit color added)\n";
 #endif
 
       break;
     }
     P = Q;
     w_o = -w_i;
-  }
+}
 
   float mx = 100.f;
-  
+
   //cap color
   float max_channel = (std::max)(color.x(), (std::max)(color.y(), color.z()));
   if (max_channel > mx)
@@ -708,32 +649,6 @@ Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, 
   float G = m->G(w_i, w_o, half, N);
   Eigen::Vector3f specular = (D * G * F) / denom;
 
-
-  /*
-  //transmissive color component
-  Eigen::Vector3f transmissive = specular;
-  Eigen::Vector3f trans_half = -(i.ior_out * w_i + i.ior_in * w_o).normalized();
-  float r = 1 - std::pow(i.ior_ratio, 2) * (1 - std::pow(w_o.dot(trans_half), 2));
-  if (r > 0)
-  {
-    D = m->D(trans_half, N);
-    F = m->F(std::abs(w_i.dot(trans_half)));
-    G = m->G(w_i, w_o, trans_half, N);
-    denom *= std::pow(i.ior_out * w_i.dot(trans_half) + i.ior_in * w_o.dot(trans_half), 2) / 4.0f;
-    if (denom == 0)
-    {
-      ret = N_w_i * (diffuse + specular);
-      return ret;
-    }
-    transmissive = D * G * (Eigen::Vector3f::Ones() - F) * std::abs(w_i.dot(trans_half)) * std::abs(w_o.dot(trans_half)) * std::pow(i.ior_out, 2) / denom;
-
-  }
-
-  if (w_o.dot(N) < 0)
-    transmissive = transmissive.cwiseProduct(GetBeers(i.t, m->Kt));
-  ret = N_w_i * (diffuse + specular + transmissive);
-    */
-
   ret = N_w_i * (diffuse + specular);
 
 #ifdef LOGGIN
@@ -797,35 +712,6 @@ float Scene::PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &
     p_s = s.object->material->D(half, N) * std::abs(half.dot(N)) / denom;
   }
 
-  /*
-  float p_t = p_s;
-  float translucency = s.object->material->translucency;
-  if (translucency > 0)
-  {
-    Eigen::Vector3f trans_half = -(s.ior_out * w_i + s.ior_in * w_o).normalized();
-    float r = 1.0 - std::pow(s.ior_ratio, 2) * (1.0 - std::pow(w_o.dot(trans_half), 2));
-    if (r > 0)
-    {
-      float denom = std::pow(s.ior_out * w_i.dot(trans_half) + s.ior_in * w_o.dot(trans_half), 2);
-      if (denom == 0)
-        return 0;
-      p_t = s.object->material->D(trans_half, N) * std::abs(trans_half.dot(N)) * std::pow(s.ior_out, 2) * std::abs(w_i.dot(trans_half)) / denom;
-    }
-    else
-    {
-      Eigen::Vector3f half = (w_o + w_i).normalized();
-      float denom = (4 * std::abs(w_i.dot(half)));
-      if (denom == 0)
-        return 0;
-      p_t = s.object->material->D(half, N) * std::abs(half.dot(N)) / denom;
-    }
-  }
-
-  float diffusness = 1.0f - (specularity + translucency);
-  float ret = diffusness * p_d + specularity * p_s + translucency * p_t;
-
-  */
-
   float diffusness = 1.0f - (specularity);
   float ret = diffusness * p_d + specularity * p_s;
 
@@ -851,19 +737,6 @@ Eigen::Vector3f Scene::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Inte
   {
     float theta = atan(s.object->material->alpha * std::sqrt(r1) / std::sqrt(1 - r1));
     Eigen::Vector3f m = SampleLobe(N, cos(theta), pi_2 * r2);
-    /*
-    if (selector < prob_trans)
-    {
-      //transmissive
-      float r = 1.0 - std::pow(s.ior_ratio, 2) * (1.0 - std::pow(w_o.dot(m), 2));
-      if (r > 0)
-      {
-        float si = w_o.dot(N) >= 0 ? 1 : -1;
-        Eigen::Vector3f ret = ((s.ior_ratio * w_o.dot(m) - si * std::sqrt(r)) * m - s.ior_ratio * w_o).normalized();
-        return ret;
-      }
-    }
-    */
 
     //specular
     return (2 * std::abs(w_o.dot(m)) * m - w_o).normalized();

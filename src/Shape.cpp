@@ -38,7 +38,6 @@ void Sphere::Intersect(const Ray &in, Intersection &i)
   i.object = this;
   i.P = in.eval(i.t);
   i.N = (i.P - Center).normalized();
-  i.Calc_IOR_Ratio(-in.direction);
 }
 
 void Sphere::GetRandomPointOn(Intersection &I)
@@ -76,6 +75,17 @@ bool Sphere::RenderGUI(int i)
   return changed;
 }
 
+std::string Sphere::Serialize()
+{
+  std::string ret = "sphere ";
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(Center[i]) + " ";
+  }
+  ret += std::to_string(Radius) + " ";
+  return ret;
+}
+
 void Box::Intersect(const Ray &in, Intersection &i)
 {
   // intersect slabs
@@ -106,9 +116,6 @@ void Box::Intersect(const Ray &in, Intersection &i)
 
   i.object = this;
   i.P = in.eval(i.t);
-  i.Calc_IOR_Ratio(-in.direction);
-  //get normal?
-  //get uv
 
 }
 
@@ -138,89 +145,18 @@ bool Box::RenderGUI(int i)
   return changed;
 }
 
-void Triangle::ResetSettings()
+std::string Box::Serialize()
 {
-  e1 = p2 - p1;
-  e2 = p3 - p1;
-
-  Eigen::Vector3f flatNorm = e2.cross(e1).normalized();
-  n1 = flatNorm;
-  n2 = flatNorm;
-  n3 = flatNorm;
-
-  this->BoundingBox = Eigen::AlignedBox<float, 3>(
-    Eigen::Vector3f(
-      (std::min)(p1.x(), (std::min)(p2.x(), p3.x())),
-      (std::min)(p1.y(), (std::min)(p2.y(), p3.y())),
-      (std::min)(p1.z(), (std::min)(p2.z(), p3.z()))
-    ),
-    Eigen::Vector3f(
-      (std::max)(p1.x(), (std::max)(p2.x(), p3.x())),
-      (std::max)(p1.y(), (std::max)(p2.y(), p3.y())),
-      (std::max)(p1.z(), (std::max)(p2.z(), p3.z())))
-    );
-  this->Position = (p1 + p2 + p3) / 3;
-  this->SurfaceArea = e2.cross(e1).norm() / 2;
-}
-
-void Triangle::Intersect(const Ray &in, Intersection &i)
-{
-  //intersects if 
-  // a solution exists for u,v s.t: intersection = p1 + u * e1 + v * e2
-  // 0 <= u <= 1,
-  // 0 <= v <= 1
-  // 0 <= 1 - u - v <= 1
-
-  //algorithm via triple product
-  Eigen::Vector3f p = in.direction.cross(e2);
-  float d = p.dot(e1);
-
-  //parallel? return no intersection
-  if (d == 0)
-    return;
-
-  Eigen::Vector3f S = in.origin - p1;
-  float u = p.dot(S) / d;
-
-  //outside e2? return no intersection
-  if (u < 0 || u > 1)
-    return;
-
-  Eigen::Vector3f q = S.cross(e1);
-  float v = in.direction.dot(q) / d;
-
-  //outside edges? no intersection
-  if (v < 0 || (u + v) > 1)
-    return;
-
-  float t = e2.dot(q) / d;
-
-  //beyond midline? no intersection
-  if (t < OriginErrorMargin)
-    return;
-
-  //intersection
-  i.t = t;
-  i.P = in.eval(i.t);
-  i.N = (1 - u - v) * n1 + u * n2 + v * n3;
-  i.object = this;
-  i.uv = (1 - u - v) * t1 + u * t2 + v * t3;
-  i.Calc_IOR_Ratio(-in.direction);
-}
-
-bool Triangle::RenderGUI(int i)
-{
-  bool changed = false;
-
-  changed |= ImGui::DragFloat3((std::string("p1##") + std::to_string(i)).data(), p1.data(), 0.01f, -10000, 10000, "%.2f");
-  changed |= ImGui::DragFloat3((std::string("p2##") + std::to_string(i)).data(), p2.data(), 0.01f, -10000, 10000, "%.2f");
-  changed |= ImGui::DragFloat3((std::string("p3##") + std::to_string(i)).data(), p3.data(), 0.01f, -10000, 10000, "%.2f");
-
-  if (changed)
+  std::string ret = "box ";
+  for (size_t i = 0; i < 3; i++)
   {
-    ResetSettings();
+    ret += std::to_string(base[i]) + " ";
   }
-  return changed;
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(extents[i]) + " ";
+  }
+  return ret;
 }
 
 void Cylinder::ResetSettings()
@@ -311,9 +247,6 @@ void Cylinder::Intersect(const Ray &in, Intersection &i)
     i.N = All.n_1;
   }
   i.P = in.eval(i.t);
-  i.Calc_IOR_Ratio(-in.direction);
-
-  //uv?
 
 }
 
@@ -360,7 +293,6 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
       i.t = dist;
       i.P = in.eval(i.t);
       i.object = this;
-      i.Calc_IOR_Ratio(-in.direction);
 
       if (flat_color)
       {
@@ -496,20 +428,20 @@ bool Fractal::RenderGUI(int n)
     switch (CombinedActions[i].action_type) {
     case 0:
       // fold
-      if (ImGui::DragFloat3((std::string("fold_plane##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.01f, -1.f, 1.f, "%.2f"))
+      if (ImGui::DragFloat3((std::string("fold_plane##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.001f, -1.f, 1.f, "%.3f"))
       {
         something_changed = true;
         CombinedActions[i].VecOp = CombinedActions[i].DisplayOp.normalized();
         CombinedActions[i].VecOp2 = 2 * CombinedActions[i].DisplayOp.normalized();
       }
-      if (ImGui::DragFloat3(("fold_color##" + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].Color.data(), 0.01f, 0.f, 1.f, "%.2f"))
+      if (ImGui::DragFloat3(("fold_color##" + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].Color.data(), 0.1f, 0.f, 1.f, "%.1f"))
       {
         something_changed = true;
       }
       break;
     case 1:
       //rotation
-      if (ImGui::DragFloat3((std::string("rotation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.1f, -180, 180.f, "%.1f"))
+      if (ImGui::DragFloat3((std::string("rotation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.01f, -180, 180.f, "%.2f"))
       {
         something_changed = true;
         CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
@@ -517,11 +449,11 @@ bool Fractal::RenderGUI(int n)
       break;
     case 2:
       //scale
-      something_changed |= ImGui::DragFloat3((std::string("scale##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
+      something_changed |= ImGui::DragFloat3((std::string("scale##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
       break;
     case 3:
       //translation
-      something_changed |= ImGui::DragFloat3((std::string("translation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.01f, -1000, 1000, "%.2f");
+      something_changed |= ImGui::DragFloat3((std::string("translation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
       break;
     }
     if (ImGui::Button((std::string("+##") + std::to_string(n) + std::to_string(i)).data()))
@@ -550,6 +482,57 @@ bool Fractal::RenderGUI(int n)
   
   ImGui::Unindent(5.f);
   return something_changed;
+}
+
+std::string Fractal::Serialize()
+{
+  std::string ret = "fractal ";
+  /*
+  # fractal parameters: pos scale rotation step_iterations num_subdivisions min_distance {options}
+# options will be read and applied in order
+# options: fold 0 (normal vector), rotate 1 (euler angles), scale 2 (scale factors), translate 3(translation amt) 
+fractal 0 0 0     2     0 0 0     100 11 0.0001   0  1 0 0    0  0 1 0    0  0 0 1    0  1 -1 0
+*/
+
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(Position[i]) + " ";
+  }
+  ret += std::to_string(Scale) + " ";
+  for (size_t i = 0; i < 3; i++)
+  {
+    ret += std::to_string(rot_eulers[i]) + " ";
+  }
+  ret += std::to_string(max_iteration) + " ";
+  ret += std::to_string(num_subdivisions) + " ";
+  ret += std::to_string(min_distance) + " ";
+
+  //actions
+  for (auto a : CombinedActions)
+  {
+    ret += std::to_string(a.action_type) + " ";
+    Eigen::Vector3f to_write;
+    switch (a.action_type)
+    {
+    case 0:
+      to_write = a.DisplayOp;
+      break;
+    case 1:
+      to_write = a.DisplayOp;
+      break;
+    case 2:
+      to_write = a.VecOp;
+      break;
+    case 3:
+      to_write = a.VecOp;
+      break;
+    }
+    for (size_t i = 0; i < 3; i++)
+    {
+      ret += std::to_string(to_write[i]) + " ";
+    }
+  }
+  return ret;
 }
 
 float Fractal::DE_Sphere(Eigen::Vector3f p)

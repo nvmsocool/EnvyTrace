@@ -56,7 +56,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>libs\freeglut;libs\assimp\include;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs\freeglut;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FREEGLUT_STATIC;_LIB;FREEGLUT_LIB_PRAGMAS=0;EIGEN_DONT_ALIGN_STATICALLY;_ITERATOR_DEBUG_LEVEL=2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -71,9 +71,9 @@
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libs\assimp\lib\assimp.lib;libs\freeglut\freeglut.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libs\freeglut\freeglut.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention>
       </DataExecutionPrevention>
@@ -89,7 +89,7 @@ xcopy .\libs\assimp\32\assimp.dll .\Debug/Y /D</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>libs\freeglut;libs\assimp\include;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs\freeglut;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FREEGLUT_STATIC;_LIB;FREEGLUT_LIB_PRAGMAS=0;EIGEN_DONT_ALIGN_STATICALLY;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -103,9 +103,9 @@ xcopy .\libs\assimp\32\assimp.dll .\Debug/Y /D</Command>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libs\assimp\lib\assimp.lib;libs\freeglut\freeglut.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libs\freeglut\freeglut.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
@@ -143,9 +143,7 @@ copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
     </ClCompile>
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="raytrace.cpp" />
-    <ClCompile Include="readAssimpFile.cpp" />
     <ClCompile Include="realtime.cpp" />
-    <ClCompile Include="rgbe.cpp" />
     <ClCompile Include="Shape.cpp" />
     <ClInclude Include="Bbox.h" />
     <ClInclude Include="BMP.h" />
@@ -165,9 +163,9 @@ copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
     <ClInclude Include="Minimizer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Ray.h" />
+    <ClInclude Include="raytrace.h" />
     <ClInclude Include="realtime.h" />
     <ClInclude Include="geom.h" />
-    <ClInclude Include="rgbe.h" />
     <ClInclude Include="Shape.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

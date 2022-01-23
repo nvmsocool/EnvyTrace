@@ -46,7 +46,7 @@ void Sphere::GetRandomPointOn(Intersection &I)
   float e2 = randf();
   float z = 2 * e1 - 1;
   float r = std::sqrt(1 - z * z);
-  float a = 2.f * 3.14159f * e2;
+  float a = pi_2 * e2;
   I.N = Eigen::Vector3f(r * std::cos(a), r * std::sin(a), z).normalized();
   I.P = Center + Radius * I.N;
   I.object = this;
@@ -59,7 +59,7 @@ void Sphere::ResetSettings()
     Center + Eigen::Vector3f::Ones() * Radius
     );
   this->Position = Center;
-  this->SurfaceArea = 4.f * 3.14159f * Radius * Radius;
+  this->SurfaceArea = 4.f * pi * Radius * Radius;
 }
 
 bool Sphere::RenderGUI(int i)
@@ -180,7 +180,7 @@ void Cylinder::ResetSettings()
     )
     );
   this->Position = Base + Axis / 2.f;
-  this->SurfaceArea = 2.f * 3.14159f * radius * (Axis.norm() + radius);
+  this->SurfaceArea = 2.f * pi * radius * (Axis.norm() + radius);
 }
 
 void Cylinder::Intersect(const Ray &in, Intersection &i)

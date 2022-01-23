@@ -1,5 +1,4 @@
 #pragma once
-const float PI = 3.14159f;
 
 ////////////////////////////////////////////////////////////////////////
 // Material: encapsulates a BRDF and communication with a shader.

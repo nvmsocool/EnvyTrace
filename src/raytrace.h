@@ -12,8 +12,6 @@ class Shape;
 #include "Intersection.h"
 #include "ImageData.h"
 
-//const float PI = 3.14159f;
-
 ////////////////////////////////////////////////////////////////////////
 // Data structures for storing meshes -- mostly used for model files
 // read in via ASSIMP.

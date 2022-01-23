@@ -1,33 +1,13 @@
 ///////////////////////////////////////////////////////////////////////
-// Provides the framework a raytracer.
+// Fractal Raytracer by Nick Miller
 //
-// Gary Herron
+// Original framework by Gary Herron
 //
 // Copyright 2012 DigiPen Institute of Technology
 ////////////////////////////////////////////////////////////////////////
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <string.h>
-#include <ctime>
-#include <iostream>
-#include <chrono>
-#include <future>
 #include <thread>
-
-#ifdef _WIN32
-    // Includes for Windows
-#include <windows.h>
-#include <cstdlib>
-#include <limits>
-#include <crtdbg.h>
-#else
-    // Includes for Linux
-#include <stdlib.h>
-#include <time.h> 
-#endif
 
 #include "raytrace.h"
 #include "realtime.h"
@@ -39,7 +19,7 @@ ImageData image, preview;
 //tracer variables
 Scene *scene;
 std::vector<char> baseNameArr(255);
-std::string baseName, hdrName, bmpName;
+std::string baseName, bmpName;
 
 //camera settings
 float cam_speed_move = 0.1f;
@@ -187,6 +167,9 @@ void SetupScene(Scene *scene, std::string &inName, bool HardReset)
   ReadScene(inName, scene, HardReset);
 
   scene->Finit();
+
+  // Allocate and clear an image array
+  ResizeImages();
 }
 
 void PurgeKeys()
@@ -402,7 +385,6 @@ void InterfaceLoop()
       if (shouldReload)
       {
         SetupScene(scene, sceneName, true);
-        ResizeImages();
         ResetTrace();
         shouldReload = false;
       }
@@ -431,7 +413,6 @@ void ResetFileName()
 {
   sceneName = baseName + ".scn";
   bmpName = baseName + ".bmp";
-  hdrName = baseName + ".hdr";
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -449,9 +430,6 @@ int main(int argc, char **argv)
   ResetFileName();
 
   SetupScene(scene, sceneName, true);
-
-  // Allocate and clear an image array
-  ResizeImages();
 
   // state bools
   bool autoStart = argc > 1 ? true : false;

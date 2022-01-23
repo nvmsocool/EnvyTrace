@@ -320,7 +320,8 @@ void Realtime::DrawArray(ImageData &id, int gui_w)
     //image is too wide, chop top/bottom
     right = 2 * (useable_w / (useable_w + (float)gui_w)) - 1;
     float shrunken_y = useable_w / image_ar;
-    top = 1.f - (1.f - (shrunken_y / (float)window_height)) / 2.f;
+    float y_pad = (window_height - shrunken_y) / 2.f;
+    top = -(2 * (y_pad / window_height) - 1);
     bottom = -top;
   }
   else

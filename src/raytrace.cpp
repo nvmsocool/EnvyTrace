@@ -2,16 +2,14 @@
 // Provides the framework for a raytracer.
 ////////////////////////////////////////////////////////////////////////
 
-#include <vector>
-
 #ifdef _WIN32
-    // Includes for Windows
+// Includes for Windows
 #include <windows.h>
 #include <cstdlib>
 #include <limits>
 #include <crtdbg.h>
 #else
-    // Includes for Linux
+// Includes for Linux
 #endif
 
 #include "geom.h"
@@ -33,11 +31,11 @@ std::uniform_real_distribution<> myrandom(0.0, 1.0);
 // Call myrandom(RNGen) to get a uniformly distributed random number in [0,1].
 
 
-Scene::Scene() : depth_of_field(false)
+Tracer::Tracer() : depth_of_field(false), InfoRay(Eigen::Vector3f::Zero(), Eigen::Vector3f::Ones()), InfoMinimizer(InfoRay)
 {
 }
 
-void Scene::Finit()
+void Tracer::Finit()
 {
   std::srand(1234567);
 
@@ -74,11 +72,12 @@ void Scene::Finit()
 }
 
 Quaternionf Orientation(size_t i,
-  const std::vector<std::string> &strings,
-  const std::vector<float> &f)
+    const std::vector<std::string> &strings,
+    const std::vector<float> &f)
 {
   Quaternionf q(1, 0, 0, 0); // Unit quaternion
-  while (i < strings.size()) {
+  while (i < strings.size())
+  {
     std::string c = strings[i++];
     if (c == "x")
       q *= angleAxis(f[i++] * ToRad, Vector3f::UnitX());
@@ -86,11 +85,13 @@ Quaternionf Orientation(size_t i,
       q *= angleAxis(f[i++] * ToRad, Vector3f::UnitY());
     else if (c == "z")
       q *= angleAxis(f[i++] * ToRad, Vector3f::UnitZ());
-    else if (c == "q") {
+    else if (c == "q")
+    {
       q *= Quaternionf(f[i + 0], f[i + 1], f[i + 2], f[i + 3]);
       i += 4;
     }
-    else if (c == "a") {
+    else if (c == "a")
+    {
       q *= angleAxis(f[i + 0] * ToRad, Vector3f(f[i + 1], f[i + 2], f[i + 3]).normalized());
       i += 4;
     }
@@ -99,7 +100,7 @@ Quaternionf Orientation(size_t i,
 }
 
 
-void Scene::ClearAll()
+void Tracer::ClearAll()
 {
   objects_p.clear();
   lights_p.clear();
@@ -119,18 +120,18 @@ void Scene::ClearAll()
   lights.reserve(100);
 }
 
-void Scene::Command(const std::vector<std::string> &strings,
-  const std::vector<float> &f, bool hard)
+void Tracer::Command(const std::vector<std::string> &strings,
+    const std::vector<float> &f)
 {
-  if (strings.size() == 0) return;
+  if (strings.size() == 0)
+    return;
   std::string c = strings[0];
 
-  if (c == "screen") {
+  if (c == "screen")
+  {
     // syntax: screen width height
     if (first_load)
     {
-      realtime = new Realtime(int(f[1]) + gui_width, int(f[2]));
-      realtime->ReshapeWindow(int(f[1]) + gui_width, int(f[2]));
       requested_width = int(f[1]);
       requested_height = int(f[2]);
       first_load = false;
@@ -142,22 +143,19 @@ void Scene::Command(const std::vector<std::string> &strings,
     }
   }
 
-  else if (c == "camera") {
+  else if (c == "camera")
+  {
     // syntax: camera x y z   ry   <orientation spec>
     // Eye position (x,y,z),  view orientation (qw qx qy qz),  frustum height ratio ry
 
-    if (hard)
-    {
-      Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
-
-      //realtime->setCamera(Vector3f(f[1], f[2], f[3]), Orientation(5, strings, f), f[4]);
-      camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], (float)requested_width, (float)requested_height, f[8], f[9]);
-    }
+    Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
+    camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], (float)requested_width, (float)requested_height, f[8], f[9]);
     camera.w = f[8];
     camera.f = f[9];
   }
 
-  else if (c == "brdf") {
+  else if (c == "brdf")
+  {
     // syntax: brdf  r g b   r g b  alpha
     // later:  brdf  r g b   r g b  alpha  r g b ior
     // First rgb is Diffuse reflection, second is specular reflection.
@@ -170,33 +168,38 @@ void Scene::Command(const std::vector<std::string> &strings,
     currentMat = &(materials[materials.size() - 1]);
   }
 
-  else if (c == "light") {
-    // syntax: light  r g b   
+  else if (c == "light")
+  {
+    // syntax: light  r g b
     // The rgb is the emission of the light
     // Creates a Material instance to be picked up by successive shapes
     lights.push_back(Light(Vector3f(f[1], f[2], f[3]), true));
     currentMat = &(lights[lights.size() - 1]);
   }
 
-  else if (c == "sphere") {
+  else if (c == "sphere")
+  {
     // syntax: sphere x y z   r
     // Creates a Shape instance for a sphere defined by a center and radius
     spheres.push_back(Sphere(f[4], Vector3f(f[1], f[2], f[3]), currentMat));
   }
 
-  else if (c == "box") {
+  else if (c == "box")
+  {
     // syntax: box bx by bz   dx dy dz
     // Creates a Shape instance for a box defined by a corner point and diagonal vector
     boxes.push_back(Box(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), currentMat));
   }
 
-  else if (c == "cylinder") {
+  else if (c == "cylinder")
+  {
     // syntax: cylinder bx by bz   ax ay az  r
     // Creates a Shape instance for a cylinder defined by a base point, axis vector, and radius
     cylinders.push_back(Cylinder(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], currentMat));
   }
 
-  else if (c == "fractal") {
+  else if (c == "fractal")
+  {
     // syntax: fractal x y z   s
     // Creates a Fractal instance for a fractal defined by at x,y,z with scale s
     Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
@@ -213,13 +216,13 @@ void Scene::Command(const std::vector<std::string> &strings,
       actionData.DisplayOp = Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]);
       switch (actionData.action_type)
       {
-      case 0: // fold
+      case Fractal::ACTION_TYPE::FOLD:
         actionData.VecOp = actionData.DisplayOp.normalized();
         break;
-      case 1: //rotation
+      case Fractal::ACTION_TYPE::ROTATION:
         actionData.QuatOp = EulerToQuat(actionData.DisplayOp);
         break;
-      default: //scale + translation
+      default:
         actionData.VecOp = actionData.DisplayOp;
         break;
       }
@@ -229,7 +232,8 @@ void Scene::Command(const std::vector<std::string> &strings,
   }
 
 
-  else {
+  else
+  {
     fprintf(stderr, "\n*********************************************\n");
     fprintf(stderr, "* Unknown command: %s\n", c.c_str());
     fprintf(stderr, "*********************************************\n\n");
@@ -237,20 +241,24 @@ void Scene::Command(const std::vector<std::string> &strings,
 }
 
 
-float Scene::TraceImage(ImageData &id, bool update_pass, int n_threads)
+float Tracer::TraceImage(ImageData &id, bool update_pass, int n_threads)
 {
 
   float diff = 0;
   float weight = 1.f / static_cast<float>(id.trace_num);
+  float denom = (float)(id.data.size());
+  float pixel_num = 0;
 
-#pragma omp parallel for schedule(dynamic, 1) num_threads(n_threads)  // Magic: Multi-thread y loop
-  for (int y = 0; y < id.h; y++) {
+#pragma omp parallel for schedule(dynamic, 1) num_threads(n_threads) // Magic: Multi-thread y loop
+  for (int y = 0; y < id.h; y++)
+  {
 
     Ray r(Eigen::Vector3f::Ones(), Eigen::Vector3f::Ones());
     Minimizer minimizer(r);
     int y_add = y * id.w;
 
-    for (int x = 0; x < id.w; x++) {
+    for (int x = 0; x < id.w; x++)
+    {
       if (halfDome)
         SetRayHalfDome(id, r, x, y);
       else if (depth_of_field)
@@ -262,13 +270,15 @@ float Scene::TraceImage(ImageData &id, bool update_pass, int n_threads)
 
       int pos = y_add + x;
       Color old = id.data[pos];
-      if (DefaultMode == Scene::DEBUG_MODE::NONE)
+      if (DefaultMode == Tracer::DEBUG_MODE::NONE)
         id.data[pos] = (1 - weight) * old + weight * BVHTracePath(r, minimizer, false);
       else
         id.data[pos] = (1 - weight) * old + weight * BVHTraceDebug(r, minimizer, DefaultMode);
 
       if (update_pass)
         diff += std::abs(old.x() - id.data[pos].x()) + std::abs(old.y() - id.data[pos].y()) + std::abs(old.z() - id.data[pos].z());
+      pixel_num += 1.f;
+      id.pctComplete = pixel_num / denom;
     }
   }
 
@@ -281,15 +291,40 @@ float Scene::TraceImage(ImageData &id, bool update_pass, int n_threads)
     return diff;
   }
   return 1;
-
 }
 
-void Scene::ResizeImage()
+
+
+void Tracer::SinglePixelInfoTrace(ImageData &id, int x, int _y)
 {
-  camera.ChangeView((float)requested_width, (float)requested_height);
+  int y = id.h - _y;
+  int y_add = y * id.w;
+
+  if (halfDome)
+    SetRayHalfDome(id, InfoRay, x, y);
+  else
+    SetRayDirect(id, InfoRay, x, y);
+
+  int pos = y_add + x;
+
+  InfoMinimizer.closest_int.Reset();
+  Eigen::BVMinimize(Tree, InfoMinimizer);
+
+  if (InfoMinimizer.closest_int.object != nullptr)
+  {
+    info_dist = InfoMinimizer.closest_int.t;
+    info_name = InfoMinimizer.closest_int.object->name;
+    info_pos = InfoMinimizer.closest_int.P;
+  }
+  else
+  {
+    info_dist = 0;
+    info_name = "N/A";
+    info_pos = Eigen::Vector3f::Zero();
+  }
 }
 
-void Scene::SetRayDirect(ImageData &id, Ray &r, int x, int y)
+void Tracer::SetRayDirect(ImageData &id, Ray &r, int x, int y)
 {
   float dy = 2 * (y + 0.5f) / id.h - 1;
   float dx = 2 * (x + 0.5f) / id.w - 1;
@@ -298,7 +333,7 @@ void Scene::SetRayDirect(ImageData &id, Ray &r, int x, int y)
   r.origin = camera.position;
 }
 
-void Scene::SetRayAA(ImageData &id, Ray &r, int x, int y)
+void Tracer::SetRayAA(ImageData &id, Ray &r, int x, int y)
 {
   float dy = 2 * (y + randf()) / id.h - 1;
   float dx = 2 * (x + randf()) / id.w - 1;
@@ -307,7 +342,7 @@ void Scene::SetRayAA(ImageData &id, Ray &r, int x, int y)
   r.origin = camera.position;
 }
 
-void Scene::SetRayDOF(ImageData &id, Ray &r, int x, int y)
+void Tracer::SetRayDOF(ImageData &id, Ray &r, int x, int y)
 {
   float rad = camera.w * std::sqrt(randf());
   float theta = pi_2 * randf();
@@ -323,7 +358,7 @@ void Scene::SetRayDOF(ImageData &id, Ray &r, int x, int y)
   r.origin = E;
 }
 
-void Scene::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
+void Tracer::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
 {
   //create ray in that direction
   int halfway = id.w / 2;
@@ -346,7 +381,7 @@ void Scene::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
   r.direction = camera.rotation._transformVector(Eigen::Vector3f(x_d, y_d, z_d)).normalized();
 }
 
-Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
+Color Tracer::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
 {
   Eigen::Vector3f color(0.001f, 0.001f, 0.001f);
   minimizer.closest_int.Reset();
@@ -357,7 +392,8 @@ Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
   {
     if (mode == DEBUG_MODE::SIMPLE)
     {
-      for (auto l : lights_p) {
+      for (auto l : lights_p)
+      {
 
         Eigen::Vector3f w_o = -r.direction;
         Intersection &i = minimizer.closest_int;
@@ -379,7 +415,7 @@ Color Scene::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
 }
 
 //assumes ray origin is set
-Intersection &Scene::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
+Intersection &Tracer::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
 {
   m.ray.direction = direction;
   m.closest_int.Reset();
@@ -409,7 +445,7 @@ void PrintMe(float f, std::string msg)
 
 //#define LOGGIN
 
-Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
+Color Tracer::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
 {
 
   Eigen::Vector3f color(0.001f, 0.001f, 0.001f);
@@ -496,7 +532,6 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
       log += std::to_string(color.z());
       log += "( <-explicit color added)\n";
 #endif
-
     }
 
 
@@ -574,7 +609,7 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
     }
     P = Q;
     w_o = -w_i;
-}
+  }
 
   float mx = 100.f;
 
@@ -604,22 +639,21 @@ Color Scene::BVHTracePath(Ray &r, Minimizer &minimizer, bool option)
   return color;
 }
 
-void Scene::SampleLight(Intersection &I)
+void Tracer::SampleLight(Intersection &I)
 {
   int light_index = rand() % lights_p.size();
   lights_p[light_index]->GetRandomPointOn(I);
 }
 
-Eigen::Vector3f Scene::GetBeers(const float t, Eigen::Vector3f Kt)
+Eigen::Vector3f Tracer::GetBeers(const float t, Eigen::Vector3f Kt)
 {
   return Eigen::Vector3f(
-    std::exp(t * std::log(Kt.x())),
-    std::exp(t * std::log(Kt.y())),
-    std::exp(t * std::log(Kt.z()))
-  );
+      std::exp(t * std::log(Kt.x())),
+      std::exp(t * std::log(Kt.y())),
+      std::exp(t * std::log(Kt.z())));
 }
 
-Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &i)
+Eigen::Vector3f Tracer::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &i)
 {
   Eigen::Vector3f color = i.Kd.x() > 0 ? i.Kd : i.object->material->Kd;
   Eigen::Vector3f diffuse = color / pi;
@@ -670,14 +704,13 @@ Eigen::Vector3f Scene::EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, 
     PrintMe(h_N, "h_N");
     PrintMe(tan_theta, "tan_theta");
     PrintMe(denom2, "denom2");
-
   }
 #endif
 
   return ret;
 }
 
-Eigen::Vector3f Scene::SampleLobe(Eigen::Vector3f &N, float c, float phi)
+Eigen::Vector3f Tracer::SampleLobe(Eigen::Vector3f &N, float c, float phi)
 {
   float s = std::sqrt(1 - c * c);
   Eigen::Vector3f K(s * std::cos(phi), s * std::sin(phi), c);
@@ -685,19 +718,19 @@ Eigen::Vector3f Scene::SampleLobe(Eigen::Vector3f &N, float c, float phi)
   return q._transformVector(K);
 }
 
-float Scene::GeometryFactor(Intersection &P, Intersection &L)
+float Tracer::GeometryFactor(Intersection &P, Intersection &L)
 {
   Eigen::Vector3f D = P.P - L.P;
   float D_D = D.dot(D);
   return std::abs(P.N.dot(D) * L.N.dot(D) / (D_D * D_D));
 }
 
-float Scene::PdfLight(Shape *L)
+float Tracer::PdfLight(Shape *L)
 {
   return 1.f / (L->SurfaceArea * static_cast<float>(lights_p.size()));
 }
 
-float Scene::PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s)
+float Tracer::PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s)
 {
   float p_d = std::abs(N.dot(w_i)) / pi;
 
@@ -720,12 +753,12 @@ float Scene::PdfBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &
   return ret;
 }
 
-Eigen::Vector3f Scene::EvalRadiance(Intersection &Q)
+Eigen::Vector3f Tracer::EvalRadiance(Intersection &Q)
 {
   return static_cast<Light *>(Q.object->material)->light_value;
 }
 
-Eigen::Vector3f Scene::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Intersection &s)
+Eigen::Vector3f Tracer::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Intersection &s)
 {
   float r1 = randf();
   float r2 = randf();

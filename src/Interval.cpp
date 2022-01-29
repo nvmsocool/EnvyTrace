@@ -1,8 +1,7 @@
 #include "Interval.h"
 
 Interval::Interval(Eigen::Vector3f n, float d_0, float d_1, const Ray &in)
-  : t_0(0)
-  , t_1(std::numeric_limits<float>().max())
+    : t_0(0), t_1(std::numeric_limits<float>().max())
 {
   Intersect(n, d_0, d_1, in);
 }
@@ -66,6 +65,5 @@ void Interval::Intersect(Eigen::Vector3f n, float d_0, float d_1, const Ray &in)
       n_0 = n;
       n_1 = -n;
     }
-
   }
 }

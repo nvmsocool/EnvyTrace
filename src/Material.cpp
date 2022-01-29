@@ -29,7 +29,8 @@ float Material::G(Eigen::Vector3f w_i, Eigen::Vector3f w_o, Eigen::Vector3f h, E
 float Material::G_1(Eigen::Vector3f w, Eigen::Vector3f h, Eigen::Vector3f N)
 {
   float w_N = w.dot(N);
-  if (abs(w_N) > 1.f) w_N = abs(w_N) / w_N;
+  if (abs(w_N) > 1.f)
+    w_N = abs(w_N) / w_N;
   float tan_theta = std::sqrt(1 - w_N * w_N) / w_N;
   if (tan_theta == 0.0f)
     return 1.0f;

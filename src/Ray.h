@@ -3,12 +3,11 @@ class Ray
 {
 public:
   Ray(Eigen::Vector3f _origin, Eigen::Vector3f _direction)
-    : origin(_origin)
-    , direction(_direction)
+      : origin(_origin), direction(_direction)
   {
     direction.normalize();
   };
-  ~Ray() {};
+  ~Ray(){};
 
   Eigen::Vector3f origin, direction;
 
@@ -17,4 +16,3 @@ public:
     return origin + t * direction;
   }
 };
-

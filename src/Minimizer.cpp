@@ -9,7 +9,8 @@ Minimizer::Minimizer(Ray &r) : ray(r) {}
 // should return the intersection t, but should also track
 // the minimum t and it's corresponding intersection info.
 // Return INF to indicate no intersection.
-float Minimizer::minimumOnObject(Shape *obj) {
+float Minimizer::minimumOnObject(Shape *obj)
+{
   test_int.Reset();
   obj->Intersect(ray, test_int);
   if (test_int.t < closest_int.t)
@@ -20,7 +21,7 @@ float Minimizer::minimumOnObject(Shape *obj) {
 // Called by BVMinimize to intersect the ray with a Bbox and
 // returns the t value. This should be similar to the already
 // written box (3 slab) intersection. (The difference being: a
- // distance of zero should be returned if the ray starts within the Bbox.)
+// distance of zero should be returned if the ray starts within the Bbox.)
 // Return INF to indicate no intersection.
 float Minimizer::minimumOnVolume(const Eigen::AlignedBox<float, 3> &box)
 {

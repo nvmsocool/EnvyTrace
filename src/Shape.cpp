@@ -55,9 +55,8 @@ void Sphere::GetRandomPointOn(Intersection &I)
 void Sphere::ResetSettings()
 {
   this->BoundingBox = Eigen::AlignedBox<float, 3>(
-    Center - Eigen::Vector3f::Ones() * Radius,
-    Center + Eigen::Vector3f::Ones() * Radius
-    );
+      Center - Eigen::Vector3f::Ones() * Radius,
+      Center + Eigen::Vector3f::Ones() * Radius);
   this->Position = Center;
   this->SurfaceArea = 4.f * pi * Radius * Radius;
 }
@@ -116,20 +115,18 @@ void Box::Intersect(const Ray &in, Intersection &i)
 
   i.object = this;
   i.P = in.eval(i.t);
-
 }
 
 void Box::ResetSettings()
 {
   this->BoundingBox = Eigen::AlignedBox<float, 3>(
-    base,
-    base + extents
-    );
+      base,
+      base + extents);
   this->Position = base + extents / 2.f;
   this->SurfaceArea =
-    2 * extents.x() * extents.y() +
-    2 * extents.x() * extents.z() +
-    2 * extents.y() * extents.z();
+      2 * extents.x() * extents.y() +
+      2 * extents.x() * extents.z() +
+      2 * extents.y() * extents.z();
 }
 
 bool Box::RenderGUI(int i)
@@ -168,17 +165,14 @@ void Cylinder::ResetSettings()
   Eigen::Vector3f maxA = Base + Axis - Eigen::Vector3f::Ones() * radius;
 
   this->BoundingBox = Eigen::AlignedBox<float, 3>(
-    Eigen::Vector3f(
-      (std::min)((std::min)(minB.x(), maxB.x()), (std::min)(minA.x(), maxA.x())),
-      (std::min)((std::min)(minB.y(), maxB.y()), (std::min)(minA.y(), maxA.y())),
-      (std::min)((std::min)(minB.z(), maxB.z()), (std::min)(minA.z(), maxA.z()))
-    ),
-    Eigen::Vector3f(
-      (std::max)((std::max)(minB.x(), maxB.x()), (std::max)(minA.x(), maxA.x())),
-      (std::max)((std::max)(minB.y(), maxB.y()), (std::max)(minA.y(), maxA.y())),
-      (std::max)((std::max)(minB.z(), maxB.z()), (std::max)(minA.z(), maxA.z()))
-    )
-    );
+      Eigen::Vector3f(
+          (std::min)((std::min)(minB.x(), maxB.x()), (std::min)(minA.x(), maxA.x())),
+          (std::min)((std::min)(minB.y(), maxB.y()), (std::min)(minA.y(), maxA.y())),
+          (std::min)((std::min)(minB.z(), maxB.z()), (std::min)(minA.z(), maxA.z()))),
+      Eigen::Vector3f(
+          (std::max)((std::max)(minB.x(), maxB.x()), (std::max)(minA.x(), maxA.x())),
+          (std::max)((std::max)(minB.y(), maxB.y()), (std::max)(minA.y(), maxA.y())),
+          (std::max)((std::max)(minB.z(), maxB.z()), (std::max)(minA.z(), maxA.z()))));
   this->Position = Base + Axis / 2.f;
   this->SurfaceArea = 2.f * pi * radius * (Axis.norm() + radius);
 }
@@ -247,7 +241,6 @@ void Cylinder::Intersect(const Ray &in, Intersection &i)
     i.N = All.n_1;
   }
   i.P = in.eval(i.t);
-
 }
 
 bool Cylinder::RenderGUI(int i)
@@ -274,7 +267,7 @@ static const Eigen::Vector3f norm_step_z(0.0f, 0.0f, 1.f);
 
 void Fractal::Intersect(const Ray &in, Intersection &i)
 {
-  // plan: step along hte ray, starting at the ray point, with the step size of DE. 
+  // plan: step along hte ray, starting at the ray point, with the step size of DE.
   // if it keeps getting bigger then return no intersection
   // else if its below a threshold, return an intersection?
 
@@ -304,7 +297,8 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
         if (color_it_fold_ratio > 0)
         {
           float f = (static_cast<float>(colorsteps) / static_cast<float>(max_iteration)) * color_it_scale + color_it_add;
-          while (f > 1) f -= 1;
+          while (f > 1)
+            f -= 1;
           it_based = ColorFromFloat(f);
         }
 
@@ -320,15 +314,15 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
         else
           i.Kd += (Eigen::Vector3f::Ones() - i.Kd) * color_intensity;
       }
-     
+
       //norm needs to be estimated
       Eigen::Vector3f step_back = in.origin + (dist - min_distance) * in.direction;
       float step_size = DE_Generic(step_back);
       i.N = Eigen::Vector3f(
-        DE_Generic(step_back + step_size * norm_step_x) - DE_Generic(step_back - step_size * norm_step_x),
-        DE_Generic(step_back + step_size * norm_step_y) - DE_Generic(step_back - step_size * norm_step_y),
-        DE_Generic(step_back + step_size * norm_step_z) - DE_Generic(step_back - step_size * norm_step_z)
-      ).normalized();
+          DE_Generic(step_back + step_size * norm_step_x) - DE_Generic(step_back - step_size * norm_step_x),
+          DE_Generic(step_back + step_size * norm_step_y) - DE_Generic(step_back - step_size * norm_step_y),
+          DE_Generic(step_back + step_size * norm_step_z) - DE_Generic(step_back - step_size * norm_step_z))
+                .normalized();
 
       return;
     }
@@ -392,42 +386,47 @@ bool Fractal::RenderGUI(int n)
 
     ImGui::Separator();
     const char *items[] = {
-    "Fold",
-    "Rotation",
-    "Scale",
-    "Translation", };
+      "FOLD",
+      "ROTATION",
+      "SCALE",
+      "TRANSLATE",
+      "MODULO",
+      "POWER",
+    };
 
     if (ImGui::Combo((std::string("type##") + std::to_string(n) + std::to_string(i)).data(), &CombinedActions[i].action_type, items, IM_ARRAYSIZE(items), 4))
     {
       something_changed = true;
       switch (CombinedActions[i].action_type)
       {
-      case 0:
-        // fold
+      case Fractal::ACTION_TYPE::FOLD:
         CombinedActions[i].DisplayOp = Eigen::Vector3f(1, 0, 0);
         CombinedActions[i].VecOp = Eigen::Vector3f(1, 0, 0);
         CombinedActions[i].VecOp2 = Eigen::Vector3f(2, 0, 0);
         break;
-      case 1:
-        //rotation
+      case Fractal::ACTION_TYPE::ROTATION:
         CombinedActions[i].DisplayOp = Eigen::Vector3f(0, 0, 0);
         CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
         break;
-      case 2:
-        //scale
-        CombinedActions[i].DisplayOp = Eigen::Vector3f(1, 1, 1);
+      case Fractal::ACTION_TYPE::SCALE:
+        CombinedActions[i].VecOp = Eigen::Vector3f(1, 1, 1);
         break;
-      case 3:
-        //translation
-        CombinedActions[i].DisplayOp = Eigen::Vector3f(0, 0, 0);
+      case Fractal::ACTION_TYPE::TRANSLATE:
+        CombinedActions[i].VecOp = Eigen::Vector3f(0, 0, 0);
+        break;
+      case Fractal::ACTION_TYPE::MODULO:
+        CombinedActions[i].VecOp = Eigen::Vector3f(100, 100, 100);
+        break;
+      case Fractal::ACTION_TYPE::POWER:
+        CombinedActions[i].VecOp = Eigen::Vector3f(1, 1, 1);
         break;
       }
       CombinedActions[i].VecOp = CombinedActions[i].DisplayOp;
     }
 
-    switch (CombinedActions[i].action_type) {
-    case 0:
-      // fold
+    switch (CombinedActions[i].action_type)
+    {
+    case Fractal::ACTION_TYPE::FOLD:
       if (ImGui::DragFloat3((std::string("fold_plane##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.001f, -1.f, 1.f, "%.3f"))
       {
         something_changed = true;
@@ -439,21 +438,24 @@ bool Fractal::RenderGUI(int n)
         something_changed = true;
       }
       break;
-    case 1:
-      //rotation
+    case Fractal::ACTION_TYPE::ROTATION:
       if (ImGui::DragFloat3((std::string("rotation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].DisplayOp.data(), 0.01f, -180, 180.f, "%.2f"))
       {
         something_changed = true;
         CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
       }
       break;
-    case 2:
-      //scale
+    case Fractal::ACTION_TYPE::SCALE:
       something_changed |= ImGui::DragFloat3((std::string("scale##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
       break;
-    case 3:
-      //translation
+    case Fractal::ACTION_TYPE::TRANSLATE:
       something_changed |= ImGui::DragFloat3((std::string("translation##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
+      break;
+    case Fractal::ACTION_TYPE::MODULO:
+      something_changed |= ImGui::DragFloat3((std::string("modulo##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
+      break;
+    case Fractal::ACTION_TYPE::POWER:
+      something_changed |= ImGui::DragFloat3((std::string("power##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
       break;
     }
     if (ImGui::Button((std::string("+##") + std::to_string(n) + std::to_string(i)).data()))
@@ -479,7 +481,7 @@ bool Fractal::RenderGUI(int n)
       }
     }
   }
-  
+
   ImGui::Unindent(5.f);
   return something_changed;
 }
@@ -488,11 +490,11 @@ std::string Fractal::Serialize()
 {
   std::string ret = "fractal ";
   /*
-  # fractal parameters: pos scale rotation step_iterations num_subdivisions min_distance {options}
-# options will be read and applied in order
-# options: fold 0 (normal vector), rotate 1 (euler angles), scale 2 (scale factors), translate 3(translation amt) 
-fractal 0 0 0     2     0 0 0     100 11 0.0001   0  1 0 0    0  0 1 0    0  0 0 1    0  1 -1 0
-*/
+    # fractal parameters: pos scale rotation step_iterations num_subdivisions min_distance {options}
+  # options will be read and applied in order
+  # options: fold 0 (normal vector), rotate 1 (euler angles), scale 2 (scale factors), translate 3(translation amt)
+  fractal 0 0 0     2     0 0 0     100 11 0.0001   0  1 0 0    0  0 1 0    0  0 0 1    0  1 -1 0
+  */
 
   for (size_t i = 0; i < 3; i++)
   {
@@ -514,16 +516,22 @@ fractal 0 0 0     2     0 0 0     100 11 0.0001   0  1 0 0    0  0 1 0    0  0 0
     Eigen::Vector3f to_write;
     switch (a.action_type)
     {
-    case 0:
+    case ACTION_TYPE::FOLD:
       to_write = a.DisplayOp;
       break;
-    case 1:
+    case ACTION_TYPE::ROTATION:
       to_write = a.DisplayOp;
       break;
-    case 2:
+    case ACTION_TYPE::SCALE:
       to_write = a.VecOp;
       break;
-    case 3:
+    case ACTION_TYPE::TRANSLATE:
+      to_write = a.VecOp;
+      break;
+    case ACTION_TYPE::MODULO:
+      to_write = a.VecOp;
+      break;
+    case ACTION_TYPE::POWER:
       to_write = a.VecOp;
       break;
     }
@@ -557,17 +565,23 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
     {
       switch (CombinedActions[i].action_type)
       {
-      case 0: // fold
+      case ACTION_TYPE::FOLD: // fold
         Action_Fold(z, i);
         break;
-      case 1: //rotation
+      case ACTION_TYPE::ROTATION: //rotation
         Action_Rotate(z, i);
         break;
-      case 2: //scale
+      case ACTION_TYPE::SCALE: //scale
         Action_Scale(z, i);
         break;
-      case 3: //translation
+      case ACTION_TYPE::TRANSLATE: //translation
         Action_Translate(z, i);
+        break;
+      case ACTION_TYPE::MODULO: //translation
+        Action_Modulo(z, i);
+        break;
+      case ACTION_TYPE::POWER: //translation
+        Action_Power(z, i);
         break;
       }
     }
@@ -611,6 +625,24 @@ void Fractal::Action_Translate(Eigen::Vector3f &p, int trans_index)
   p = p + CombinedActions[trans_index].VecOp;
 }
 
+
+void Fractal::Action_Modulo(Eigen::Vector3f &p, int index)
+{
+  for (size_t i = 0; i < 3; i++)
+    p[i] = fmod(p[i], CombinedActions[index].VecOp[i]);
+}
+
+void Fractal::Action_Power(Eigen::Vector3f &p, int index)
+{
+  for (size_t i = 0; i < 3; i++)
+  {
+    if (p[i] < 0)
+      p[i] = -std::pow(-p[i], CombinedActions[index].VecOp[i]);
+    else
+      p[i] = std::pow(p[i], CombinedActions[index].VecOp[i]);
+  }
+}
+
 Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
 {
   Eigen::Vector3f c(1.0, 1.0, 1.0);
@@ -624,28 +656,31 @@ Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
     {
       switch (CombinedActions[action_num].action_type)
       {
-      case 0: // fold
+      case ACTION_TYPE::FOLD: // fold
         if (Action_Fold_Color(z, action_num))
           c = (1 - w) * c + w * CombinedActions[action_num].Color;
         break;
-      case 1: //rotation
+      case ACTION_TYPE::ROTATION: //rotation
         Action_Rotate(z, action_num);
         break;
-      case 2: //scale
+      case ACTION_TYPE::SCALE: //scale
         Action_Scale(z, action_num);
         break;
-      case 3: //translation
+      case ACTION_TYPE::TRANSLATE: //translation
         Action_Translate(z, action_num);
+        break;
+      case ACTION_TYPE::MODULO: //translation
+        Action_Modulo(z, action_num);
+        break;
+      case ACTION_TYPE::POWER: //translation
+        Action_Power(z, action_num);
         break;
       }
     }
 
     w *= 0.5f;
-    z = Scale * z - Eigen::Vector3f::Ones() * (Scale - 1.f);
     r = z.squaredNorm();
   }
-
-  //do a precise check here on a unit tetrahedron
 
   return c;
 }
@@ -653,10 +688,10 @@ Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
 int Fractal::NumFolds()
 {
   int ret = 0;
-  for each (auto a in CombinedActions)
-    if (a.action_type == 0)
-      ret++;
-  return ret;
+    for
+      each(auto a in CombinedActions) if (a.action_type == 0)
+          ret++;
+    return ret;
 }
 
 void Fractal::GenColors()
@@ -687,7 +722,8 @@ Eigen::Vector3f Fractal::ColorFromFloat(float val)
 bool Shape::RenderGenericGUI(int shape_num)
 {
   bool something_changed = false;
-  if (ImGui::CollapsingHeader(name.data())) {
+  if (ImGui::CollapsingHeader(name.data()))
+  {
     ImGui::Indent(10.f);
     something_changed |= material->RenderGUI(shape_num);
     something_changed |= this->RenderGUI(shape_num);

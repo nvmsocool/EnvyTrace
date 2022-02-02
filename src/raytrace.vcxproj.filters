@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Bbox.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Intersection.cpp" />
+    <ClCompile Include="Interval.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Material.cpp" />
+    <ClCompile Include="Minimizer.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="Ray.cpp" />
+    <ClCompile Include="raytrace.cpp" />
+    <ClCompile Include="Shapes\Shape.cpp">
+      <Filter>Shapes</Filter>
+    </ClCompile>
+    <ClCompile Include="Shapes\Sphere.cpp">
+      <Filter>Shapes</Filter>
+    </ClCompile>
+    <ClCompile Include="Shapes\Box.cpp">
+      <Filter>Shapes</Filter>
+    </ClCompile>
+    <ClCompile Include="Shapes\Cylinder.cpp">
+      <Filter>Shapes</Filter>
+    </ClCompile>
+    <ClCompile Include="Shapes\Fractal.cpp">
+      <Filter>Shapes</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\imgui-master\imgui.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\imgui-master\imgui_demo.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\imgui-master\imgui_draw.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\imgui-master\imgui_widgets.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Display.cpp" />
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_glfw.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_opengl3.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\imgui-master\imgui_tables.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Bbox.h" />
+    <ClInclude Include="BMP.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="ImageData.h" />
+    <ClInclude Include="Intersection.h" />
+    <ClInclude Include="Interval.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="Minimizer.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="Ray.h" />
+    <ClInclude Include="raytrace.h" />
+    <ClInclude Include="Shapes\Shape.h">
+      <Filter>Shapes</Filter>
+    </ClInclude>
+    <ClInclude Include="Shapes\Sphere.h">
+      <Filter>Shapes</Filter>
+    </ClInclude>
+    <ClInclude Include="Shapes\Box.h">
+      <Filter>Shapes</Filter>
+    </ClInclude>
+    <ClInclude Include="Shapes\Cylinder.h">
+      <Filter>Shapes</Filter>
+    </ClInclude>
+    <ClInclude Include="Shapes\Fractal.h">
+      <Filter>Shapes</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\imgui-master\imconfig.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\imgui-master\imgui.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\imgui-master\imgui_internal.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Utilities.h" />
+    <ClInclude Include="Display.h" />
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_glfw.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl3.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl3_loader.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".clang-format" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shapes">
+      <UniqueIdentifier>{483ab462-903e-461e-954a-9de41feb9a76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="imgui">
+      <UniqueIdentifier>{52dd0e87-2ecf-47ee-9aa2-a2c7326276d4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

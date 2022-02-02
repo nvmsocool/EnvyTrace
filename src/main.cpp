@@ -10,16 +10,25 @@
 #define no_init_all deprecated
 #include <thread>
 
+#define NOMINMAX
+#include <windows.h>
+
 #include "raytrace.h"
-#include "realtime.h"
+#include "Display.h"
 #include "BMP.h"
 #include "ImageData.h"
+#include "Shapes/Shape.h"
+
+//for imgui
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 ImageData image, preview;
 
 //tracer variables
 Tracer *tracer;
-Realtime *realtime;
+Display *display;
 std::vector<char> baseNameArr(255);
 std::string baseName, bmpName;
 
@@ -38,7 +47,8 @@ float traceDiff = 0;
 
 float guiFPS = 0;
 
-float maxMsToWait = 50.f;
+int maxFPS = 90;
+float maxMsToWait;
 
 std::list<float> msToWaitHistory;
 float totalFromMsHistory = 0;
@@ -129,7 +139,7 @@ void ResizePreview()
 void ResizeImage()
 {
   image.Resize(tracer->requested_width, tracer->requested_height);
-  realtime->SetRenderSize(image);
+  display->SetRenderSize(image);
 
   // render at least one pixel
   min_ratio = 2.f / (float)image.w;
@@ -156,6 +166,11 @@ void SaveCopy()
   system((std::string("copy ") + bmpName + " " + bmpBackup).c_str());
 }
 
+void ResetFPS()
+{
+  maxMsToWait = 1000.f / (float)maxFPS;
+}
+
 void SetupScene()
 {
 
@@ -168,10 +183,12 @@ void SetupScene()
 
   tracer->Finit();
 
-  realtime->SetupWindow(tracer->requested_width, tracer->requested_height);
+  display->SetupWindow(tracer->requested_width, tracer->requested_height);
 
   // Allocate and clear an image array
   ResizeImages();
+
+  ResetFPS();
 }
 
 void DrawGUI()
@@ -180,11 +197,12 @@ void DrawGUI()
   //ImGui::ShowDemoWindow();
 
   // Start the Dear ImGui frame
-  ImGui_ImplOpenGL2_NewFrame();
-  ImGui_ImplGLUT_NewFrame();
+  ImGui_ImplOpenGL3_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
 
-  ImGui::SetNextWindowSize(ImVec2((float)realtime->gui_width, (float)realtime->window_height));
-  ImGui::SetNextWindowPos(ImVec2((float)(realtime->window_width - realtime->gui_width), 0.f));
+  ImGui::SetNextWindowSize(ImVec2((float)display->gui_width, (float)display->window_height));
+  ImGui::SetNextWindowPos(ImVec2((float)(display->window_width - display->gui_width), 0.f));
 
   ImGui::Begin("Fractal Tracer", NULL, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize); // Create a window called "Hello, world!" and append into it.
 
@@ -194,7 +212,7 @@ void DrawGUI()
   ImGui::Text("Preview Ratio: %.4f", previewRatio);
   if (ImGui::CollapsingHeader("under mouse", ImGuiTreeNodeFlags_DefaultOpen))
   {
-    ImGui::Text("pos: (%d,%d)", realtime->mouse_x, realtime->mouse_y);
+    ImGui::Text("pos: (%d,%d)", display->mouse_x, display->mouse_y);
 
     ImGui::Text("name: %s", tracer->info_name.data());
     ImGui::Text("distance: %.4f", tracer->info_dist);
@@ -207,14 +225,11 @@ void DrawGUI()
   {
     ImGui::Indent(16.0f);
 
-    // ImGui::InputText("scene_file", &baseName);
+    //ImGui::InputText("scene_file", &baseName);
     if (ImGui::InputText("Text", baseNameArr.data(), baseNameArr.size(),
-            ImGuiInputTextFlags_CallbackCharFilter,
-            [](ImGuiTextEditCallbackData *data) {
-              baseName = baseNameArr.data();
-              return 0;
-            }))
+            ImGuiInputTextFlags_CallbackCharFilter))
     {
+      baseName = baseNameArr.data();
       ResetFileName();
     }
     if (ImGui::IsItemActive())
@@ -274,12 +289,10 @@ void DrawGUI()
     {
       tracer->camera.PurgeKeys();
     }
+    if (ImGui::SliderInt("guiFPS", &maxFPS, 1, 120))
+      ResetFPS();
     ImGui::SliderInt("threads", &numThreadsToUse, 1, processorCount);
     ImGui::Checkbox("isPaused", &tracer->isPaused);
-    if (ImGui::Checkbox("halfDome", &tracer->halfDome))
-    {
-      ResetTrace();
-    }
 
     ImGui::Unindent(16.0f);
   }
@@ -301,6 +314,10 @@ void DrawGUI()
 
     ImGui::DragFloat("move_speed", &tracer->camera.speedMove, 0.01f);
     ImGui::DragFloat("rot_speed", &tracer->camera.speedRot, 0.01f);
+    if (ImGui::Checkbox("use_AA", &tracer->use_AA))
+    {
+      ResetTrace();
+    }
     if (ImGui::Checkbox("depth_of_field", &tracer->depth_of_field))
     {
       ResetTrace();
@@ -314,7 +331,7 @@ void DrawGUI()
         ResetTrace();
       ImGui::Unindent(10.f);
     }
-    if (ImGui::Checkbox("use_AA", &tracer->use_AA))
+    if (ImGui::Checkbox("halfDome", &tracer->halfDome))
     {
       ResetTrace();
     }
@@ -350,8 +367,7 @@ void DrawGUI()
   ImGui::Render();
   ImGuiIO &io = ImGui::GetIO();
 
-
-  ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void ResetTrace()
@@ -364,7 +380,7 @@ void InterfaceLoop()
 {
   // state bools
   bool isWindowActive = true;
-  while (!realtime->closed)
+  while (!display->closed)
   {
     if (!tracer->isPaused)
     {
@@ -419,7 +435,7 @@ int main(int argc, char **argv)
 {
 
   tracer = new Tracer();
-  realtime = new Realtime();
+  display = new Display();
 
   // Read the command line argument
   baseName = (argc > 1) ? argv[1] : "testscene";
@@ -433,7 +449,6 @@ int main(int argc, char **argv)
 
   // state bools
   bool autoStart = argc > 1 ? true : false;
-  bool isWindowActive = true;
 
   if (autoStart)
     tracer->DefaultMode = Tracer::DEBUG_MODE::DIFFUSE;
@@ -442,33 +457,31 @@ int main(int argc, char **argv)
   auto it = std::thread(InterfaceLoop);
   bool previewed_this_frame = false;
 
-  while (!realtime->closed)
+  while (!display->closed)
   {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    isWindowActive = GetConsoleWindow() == GetForegroundWindow() || realtime->isWindowActive();
-
-    if (!realtime->closed)
+    if (!display->closed)
     {
       if (!shouldReload)
-        tracer->SinglePixelInfoTrace(image, realtime->mouse_x, realtime->mouse_y);
+        tracer->SinglePixelInfoTrace(image, display->mouse_x, display->mouse_y);
       if ((image.trace_num < 2 && tracer->DefaultMode != Tracer::DEBUG_MODE::NONE) || shouldReset)
       {
         float diff = tracer->TraceImage(preview, false, numThreadsToUse);
-        realtime->DrawArray(preview);
+        display->DrawArray(preview);
         previewed_this_frame = true;
       }
       else
       {
-        realtime->DrawArray(image);
+        display->DrawArray(image);
       }
       DrawGUI();
-      realtime->FinishDrawing();
+      display->FinishDrawing();
     }
 
-    realtime->UpdateEvent();
+    display->UpdateEvent();
 
-    if (isWindowActive && !isEnteringText && tracer->camera.controlsEnabled)
+    if (display->active && !isEnteringText && tracer->camera.controlsEnabled)
     {
       if (tracer->camera.Update())
         ResetTrace();
@@ -517,5 +530,5 @@ int main(int argc, char **argv)
   generateBitmapImage(image, bmpName.data());
 
   delete tracer;
-  delete realtime;
+  delete display;
 }

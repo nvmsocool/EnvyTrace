@@ -2,34 +2,11 @@
 // Provides the framework for a raytracer.
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef _WIN32
-// Includes for Windows
-#include <windows.h>
-#include <cstdlib>
-#include <limits>
-#include <crtdbg.h>
-#else
-// Includes for Linux
-#endif
-
-#include "geom.h"
 #include "raytrace.h"
-#include "realtime.h"
-#include "Shape.h"
 #include "Ray.h"
 #include <Eigen_unsupported/Eigen/src/BVH/BVAlgorithms.h>
-#include "Eulers.h"
 
 #include <chrono>
-#include <stack>
-
-// A good quality *thread-safe* Mersenne Twister random number generator.
-#include <random>
-std::random_device device;
-std::mt19937_64 RNGen(device());
-std::uniform_real_distribution<> myrandom(0.0, 1.0);
-// Call myrandom(RNGen) to get a uniformly distributed random number in [0,1].
-
 
 Tracer::Tracer() : depth_of_field(false), InfoRay(Eigen::Vector3f::Zero(), Eigen::Vector3f::Ones()), InfoMinimizer(InfoRay)
 {
@@ -68,37 +45,8 @@ void Tracer::Finit()
     if (objects_p[i]->material->isLight())
       lights_p.push_back(objects_p[i]);
   }
-  Tree = KdBVH<float, 3, Shape *>(objects_p.begin(), objects_p.end());
+  Tree = Eigen::KdBVH<float, 3, Shape *>(objects_p.begin(), objects_p.end());
 }
-
-Quaternionf Orientation(size_t i,
-    const std::vector<std::string> &strings,
-    const std::vector<float> &f)
-{
-  Quaternionf q(1, 0, 0, 0); // Unit quaternion
-  while (i < strings.size())
-  {
-    std::string c = strings[i++];
-    if (c == "x")
-      q *= angleAxis(f[i++] * ToRad, Vector3f::UnitX());
-    else if (c == "y")
-      q *= angleAxis(f[i++] * ToRad, Vector3f::UnitY());
-    else if (c == "z")
-      q *= angleAxis(f[i++] * ToRad, Vector3f::UnitZ());
-    else if (c == "q")
-    {
-      q *= Quaternionf(f[i + 0], f[i + 1], f[i + 2], f[i + 3]);
-      i += 4;
-    }
-    else if (c == "a")
-    {
-      q *= angleAxis(f[i + 0] * ToRad, Vector3f(f[i + 1], f[i + 2], f[i + 3]).normalized());
-      i += 4;
-    }
-  }
-  return q;
-}
-
 
 void Tracer::ClearAll()
 {
@@ -149,7 +97,7 @@ void Tracer::Command(const std::vector<std::string> &strings,
     // Eye position (x,y,z),  view orientation (qw qx qy qz),  frustum height ratio ry
 
     Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
-    camera.SetProperties(rot, Vector3f(f[1], f[2], f[3]), f[4], (float)requested_width, (float)requested_height, f[8], f[9]);
+    camera.SetProperties(rot, Eigen::Vector3f(f[1], f[2], f[3]), f[4], (float)requested_width, (float)requested_height, f[8], f[9]);
     camera.w = f[8];
     camera.f = f[9];
   }
@@ -162,9 +110,9 @@ void Tracer::Command(const std::vector<std::string> &strings,
     // third is beer's law transmission followed by index of refraction.
     // Creates a Material instance to be picked up by successive shapes
     if (f.size() >= 14)
-      materials.push_back(Material(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], f[8], Vector3f(f[9], f[10], f[11]), f[12], f[13]));
+      materials.push_back(Material(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], f[8], Eigen::Vector3f(f[9], f[10], f[11]), f[12], f[13]));
     else
-      materials.push_back(Material(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], f[8]));
+      materials.push_back(Material(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], f[8]));
     currentMat = &(materials[materials.size() - 1]);
   }
 
@@ -173,7 +121,7 @@ void Tracer::Command(const std::vector<std::string> &strings,
     // syntax: light  r g b
     // The rgb is the emission of the light
     // Creates a Material instance to be picked up by successive shapes
-    lights.push_back(Light(Vector3f(f[1], f[2], f[3]), true));
+    lights.push_back(Light(Eigen::Vector3f(f[1], f[2], f[3]), true));
     currentMat = &(lights[lights.size() - 1]);
   }
 
@@ -181,21 +129,21 @@ void Tracer::Command(const std::vector<std::string> &strings,
   {
     // syntax: sphere x y z   r
     // Creates a Shape instance for a sphere defined by a center and radius
-    spheres.push_back(Sphere(f[4], Vector3f(f[1], f[2], f[3]), currentMat));
+    spheres.push_back(Sphere(f[4], Eigen::Vector3f(f[1], f[2], f[3]), currentMat));
   }
 
   else if (c == "box")
   {
     // syntax: box bx by bz   dx dy dz
     // Creates a Shape instance for a box defined by a corner point and diagonal vector
-    boxes.push_back(Box(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), currentMat));
+    boxes.push_back(Box(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), currentMat));
   }
 
   else if (c == "cylinder")
   {
     // syntax: cylinder bx by bz   ax ay az  r
     // Creates a Shape instance for a cylinder defined by a base point, axis vector, and radius
-    cylinders.push_back(Cylinder(Vector3f(f[1], f[2], f[3]), Vector3f(f[4], f[5], f[6]), f[7], currentMat));
+    cylinders.push_back(Cylinder(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], currentMat));
   }
 
   else if (c == "fractal")
@@ -203,7 +151,7 @@ void Tracer::Command(const std::vector<std::string> &strings,
     // syntax: fractal x y z   s
     // Creates a Fractal instance for a fractal defined by at x,y,z with scale s
     Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
-    fractals.push_back(Fractal(f[4], Vector3f(f[1], f[2], f[3]), rot, currentMat));
+    fractals.push_back(Fractal(f[4], Eigen::Vector3f(f[1], f[2], f[3]), rot, currentMat));
     Fractal *fr = &fractals[fractals.size() - 1];
     fr->SetRecursionProperties((int)f[8], (int)f[9], f[10]);
 
@@ -247,7 +195,7 @@ float Tracer::TraceImage(ImageData &id, bool update_pass, int n_threads)
   float diff = 0;
   float weight = 1.f / static_cast<float>(id.trace_num);
   float denom = (float)(id.data.size());
-  float pixel_num = 0;
+  pixel_num = 0;
 
 #pragma omp parallel for schedule(dynamic, 1) num_threads(n_threads) // Magic: Multi-thread y loop
   for (int y = 0; y < id.h; y++)
@@ -281,7 +229,6 @@ float Tracer::TraceImage(ImageData &id, bool update_pass, int n_threads)
       id.pctComplete = pixel_num / denom;
     }
   }
-
 
   id.trace_num++;
 
@@ -379,6 +326,7 @@ void Tracer::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
   float x_d = sinTheta * std::cos(phi);
   float y_d = sinTheta * std::sin(phi);
   r.direction = camera.rotation._transformVector(Eigen::Vector3f(x_d, y_d, z_d)).normalized();
+
 }
 
 Color Tracer::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
@@ -714,7 +662,7 @@ Eigen::Vector3f Tracer::SampleLobe(Eigen::Vector3f &N, float c, float phi)
 {
   float s = std::sqrt(1 - c * c);
   Eigen::Vector3f K(s * std::cos(phi), s * std::sin(phi), c);
-  Eigen::Quaternionf q = Eigen::Quaternionf::FromTwoVectors(Vector3f::UnitZ(), N);
+  Eigen::Quaternionf q = Eigen::Quaternionf::FromTwoVectors(Eigen::Vector3f::UnitZ(), N);
   return q._transformVector(K);
 }
 

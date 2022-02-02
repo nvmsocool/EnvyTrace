@@ -1,5 +1,5 @@
 #include "Intersection.h"
-#include "Shape.h"
+#include "Shapes\Shape.h"
 #include "Material.h"
 
 void Intersection::Reset()

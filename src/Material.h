@@ -11,7 +11,7 @@ public:
   unsigned int texid;
 
   virtual bool isLight() { return _isLight; }
-  virtual bool RenderGUI(int shape_num);
+  virtual bool RenderGUI(size_t shape_num);
 
   Material() : Kd(Eigen::Vector3f(1.0, 0.5, 0.0)), Ks(Eigen::Vector3f(1, 1, 1)), alpha(1.0), specularity(0.0f), texid(0), _isLight(false) {}
   Material(const Eigen::Vector3f d, const Eigen::Vector3f s, const float a, const float sp)
@@ -59,7 +59,7 @@ public:
     Ks = Eigen::Vector3f::Ones();
   }
   virtual bool isLight() { return _isLight; }
-  virtual bool RenderGUI(int shape_num);
+  virtual bool RenderGUI(size_t shape_num);
   virtual std::string Serialize();
   Eigen::Vector3f light_value;
 };

@@ -1,6 +1,4 @@
 #include "Camera.h"
-#include <iostream>
-#include "Eulers.h"
 #include <windows.h>
 
 Camera::Camera()

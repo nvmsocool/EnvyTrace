@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
+    <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
+    <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -17,13 +17,13 @@
     <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v141</PlatformToolset>
@@ -31,39 +31,34 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.40219.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
-    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
-    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
-    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
-    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
-    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
-    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
-    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
-    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>libs\freeglut;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FREEGLUT_STATIC;_LIB;FREEGLUT_LIB_PRAGMAS=0;EIGEN_DONT_ALIGN_STATICALLY;_ITERATOR_DEBUG_LEVEL=2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4251;4996;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <OpenMPSupport>true</OpenMPSupport>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
@@ -71,13 +66,12 @@
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libs\freeglut\freeglut.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libs\glfw-3.3.2.bin.WIN64\lib-vc2017\glfw3.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention>
       </DataExecutionPrevention>
-      <TargetMachine>MachineX86</TargetMachine>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
       <IgnoreAllDefaultLibraries>
@@ -86,12 +80,13 @@
     </Link>
     <PostBuildEvent>
       <Command>xcopy .\libs\assimp\32\assimp.dll .\Debug /Y /D</Command>
-      <Command>xcopy .\libs\glbinding.dll .\Debug /Y /D</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>libs\freeglut;libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libs;libs\imgui-master;libs\imgui-master\backends</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FREEGLUT_STATIC;_LIB;FREEGLUT_LIB_PRAGMAS=0;EIGEN_DONT_ALIGN_STATICALLY;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -105,7 +100,7 @@
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libs\freeglut\freeglut.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libs\glfw-3.3.2.bin.WIN64\lib-vc2017\glfw3.lib;libs\glbinding.lib;gdi32.lib;winmm.lib;user32.lib;glu32.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -113,62 +108,71 @@
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention>
       </DataExecutionPrevention>
-      <TargetMachine>MachineX86</TargetMachine>
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
       <Profile>true</Profile>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
       <Command>xcopy .\libs\assimp\32\assimp.dll .\Release /Y /D</Command>
-      <Command>xcopy .\libs\glbinding.dll .\Release /Y /D
-xcopy .\libs\assimp\32\assimp.dll .\Release /Y /D
-copy $(ProjectDir)Release\raytrace.exe $(ProjectDir)EnvyTrace.exe</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Bbox.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Display.cpp" />
     <ClCompile Include="Intersection.cpp" />
     <ClCompile Include="Interval.cpp" />
-    <ClCompile Include="libs\imgui-master\backends\imgui_impl_opengl2.cpp" />
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="libs\imgui-master\imgui.cpp" />
     <ClCompile Include="libs\imgui-master\imgui_demo.cpp" />
     <ClCompile Include="libs\imgui-master\imgui_draw.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_tables.cpp" />
     <ClCompile Include="libs\imgui-master\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="geom.cpp" />
     <ClCompile Include="Material.cpp" />
     <ClCompile Include="Minimizer.cpp" />
     <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="raytrace.cpp" />
-    <ClCompile Include="realtime.cpp" />
-    <ClCompile Include="Shape.cpp" />
+    <ClCompile Include="Shapes\Box.cpp" />
+    <ClCompile Include="Shapes\Cylinder.cpp" />
+    <ClCompile Include="Shapes\Fractal.cpp" />
+    <ClCompile Include="Shapes\Shape.cpp" />
+    <ClCompile Include="Shapes\Sphere.cpp" />
     <ClInclude Include="Bbox.h" />
     <ClInclude Include="BMP.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="Eulers.h" />
+    <ClInclude Include="Display.h" />
+    <ClInclude Include="Utilities.h" />
     <ClInclude Include="ImageData.h" />
     <ClInclude Include="Intersection.h" />
     <ClInclude Include="Interval.h" />
-    <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl2.h" />
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="libs\imgui-master\backends\imgui_impl_glfw.h" />
     <ClInclude Include="libs\imgui-master\imconfig.h" />
     <ClInclude Include="libs\imgui-master\imgui.h" />
     <ClInclude Include="libs\imgui-master\imgui_internal.h" />
-    <ClInclude Include="libs\imgui-master\imstb_rectpack.h" />
-    <ClInclude Include="libs\imgui-master\imstb_textedit.h" />
-    <ClInclude Include="libs\imgui-master\imstb_truetype.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="Minimizer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Ray.h" />
     <ClInclude Include="raytrace.h" />
-    <ClInclude Include="realtime.h" />
-    <ClInclude Include="geom.h" />
-    <ClInclude Include="Shape.h" />
+    <ClInclude Include="Shapes\Box.h" />
+    <ClInclude Include="Shapes\Cylinder.h" />
+    <ClInclude Include="Shapes\Fractal.h" />
+    <ClInclude Include="Shapes\Shape.h" />
+    <ClInclude Include="Shapes\Sphere.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".clang-format" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

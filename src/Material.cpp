@@ -1,7 +1,5 @@
 #include "Material.h"
 #include "imgui.h"
-#include "Eulers.h"
-#include <iostream>
 
 float Material::D(Eigen::Vector3f h, Eigen::Vector3f N)
 {
@@ -56,7 +54,7 @@ std::string Material::Serialize()
   return ret;
 }
 
-bool Light::RenderGUI(int shape_num)
+bool Light::RenderGUI(size_t shape_num)
 {
   bool something_changed = false;
 
@@ -81,7 +79,7 @@ std::string Light::Serialize()
   return ret;
 }
 
-bool Material::RenderGUI(int shape_num)
+bool Material::RenderGUI(size_t shape_num)
 {
   bool something_changed = false;
 

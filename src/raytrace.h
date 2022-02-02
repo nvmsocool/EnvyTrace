@@ -7,10 +7,16 @@
 class Shape;
 #include "Camera.h"
 #include "Material.h"
-#include "Shape.h"
 #include "Minimizer.h"
 #include "Intersection.h"
 #include "ImageData.h"
+
+// shapes
+#include "Shapes/Shape.h"
+#include "Shapes/Sphere.h"
+#include "Shapes/Box.h"
+#include "Shapes/Cylinder.h"
+#include "Shapes/Fractal.h"
 
 ////////////////////////////////////////////////////////////////////////
 // Data structures for storing meshes -- mostly used for model files
@@ -25,11 +31,11 @@ typedef Eigen::Matrix<unsigned int, 3, 1> TriData;
 class VertexData
 {
 public:
-  Vector3f pnt;
-  Vector3f nrm;
-  Vector2f tex;
-  Vector3f tan;
-  VertexData(const Vector3f &p, const Vector3f &n, const Vector2f &t, const Vector3f &a)
+  Eigen::Vector3f pnt;
+  Eigen::Vector3f nrm;
+  Eigen::Vector2f tex;
+  Eigen::Vector3f tan;
+  VertexData(const Eigen::Vector3f &p, const Eigen::Vector3f &n, const Eigen::Vector2f &t, const Eigen::Vector3f &a)
       : pnt(p), nrm(n), tex(t), tan(a) {}
 };
 
@@ -62,11 +68,8 @@ public:
 
   std::unordered_map<Material *, std::vector<Shape *>> shapes_by_material;
 
-  KdBVH<float, 3, Shape *> Tree;
-  bool depth_of_field{ false };
-  bool use_AA{ true };
+  Eigen::KdBVH<float, 3, Shape *> Tree;
   bool first_load{ true };
-  bool halfDome{ false };
   bool isPaused{ false };
 
   enum DEBUG_MODE
@@ -91,17 +94,20 @@ public:
   void Command(const std::vector<std::string> &strings,
       const std::vector<float> &f);
 
-  // The main program will call the TraceImage method to generate
-  // and return the image.  This is the Ray Tracer!
+  // tracing functions
   float TraceImage(ImageData &id, bool update_pass, int n_threads);
-
   void SinglePixelInfoTrace(ImageData &id, int x, int y);
 
+  // ray direction selection vars/functions
+  bool depth_of_field{ false };
+  bool use_AA{ true };
+  bool halfDome{ false };
   void SetRayDirect(ImageData &id, Ray &r, int x, int y);
   void SetRayAA(ImageData &id, Ray &r, int x, int y);
   void SetRayDOF(ImageData &id, Ray &r, int x, int y);
   void SetRayHalfDome(ImageData &id, Ray &r, int x, int y);
 
+  // tracer support functions
   Color BVHTracePath(Ray &r, Minimizer &minimizer, bool option);
   Color BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE m);
   void SampleLight(Intersection &I);
@@ -115,11 +121,13 @@ public:
   float GeometryFactor(Intersection &P, Intersection &L);
   Intersection &FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction);
 
-  //minimizer and ray for info trace
+  // vars for mouse over info
   Ray InfoRay;
   Minimizer InfoMinimizer;
-
   float info_dist;
   std::string info_name;
   Eigen::Vector3f info_pos;
+
+  // for progress bar
+  float pixel_num;
 };

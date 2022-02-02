@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "Minimizer.h"
-#include "Shape.h"
+#include "Shapes\Shape.h"
 #include "Interval.h"
 
 Minimizer::Minimizer(Ray &r) : ray(r) {}

@@ -6,7 +6,10 @@ struct ImageData
   int h;
   size_t trace_num;
   std::vector<Color> data;
+
+  // for progress bar
   float pctComplete;
+  float pixel_num;
 
   void Resize(int _w, int _h)
   {

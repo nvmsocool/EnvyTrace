@@ -27,10 +27,10 @@ void ReshapeFunc(GLFWwindow *win, int w, int h)
 
 void MoveFunc(GLFWwindow *win, double _x, double _y)
 {
-  int x = (int)_x;
-  int y = (int)_y;
-  globalDisplay->mouse_x = (int)((float)globalDisplay->render_width * (float)(x - globalDisplay->left_i) / (float)(globalDisplay->right_i - globalDisplay->left_i));
-  globalDisplay->mouse_y = (int)((float)globalDisplay->render_height * (float)(y - globalDisplay->top_i) / (float)(globalDisplay->bottom_i - globalDisplay->top_i));
+  globalDisplay->real_mouse_x = (int)_x;
+  globalDisplay->real_mouse_y = (int)_y;
+  globalDisplay->mouse_x = (int)((float)globalDisplay->render_width * (float)(globalDisplay->real_mouse_x - globalDisplay->left_i) / (float)(globalDisplay->right_i - globalDisplay->left_i));
+  globalDisplay->mouse_y = (int)((float)globalDisplay->render_height * (float)(globalDisplay->real_mouse_y - globalDisplay->top_i) / (float)(globalDisplay->bottom_i - globalDisplay->top_i));
   globalDisplay->mouse_x = std::max(0, std::min(globalDisplay->mouse_x, globalDisplay->render_width));
   globalDisplay->mouse_y = std::max(0, std::min(globalDisplay->mouse_y, globalDisplay->render_height));
 }
@@ -51,6 +51,12 @@ void CloseFunc(GLFWwindow *window)
 void ActiveFunc(GLFWwindow *window, int focused)
 {
   globalDisplay->active = (bool)focused;
+}
+
+void ClickFunc(GLFWwindow *window, int button, int action, int mods)
+{
+  if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS)
+    globalDisplay->clickRequest = true;
 }
 
 // class functions
@@ -198,6 +204,7 @@ void Display::SetupWindow(int _w, int h)
   glfwSetWindowSizeCallback(window, ReshapeFunc);
   glfwSetWindowCloseCallback(window, CloseFunc);
   glfwSetCursorPosCallback(window, MoveFunc);
+  glfwSetMouseButtonCallback(window, ClickFunc);
 
   ReshapeWindow(w, h);
 

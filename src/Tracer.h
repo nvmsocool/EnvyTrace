@@ -18,38 +18,6 @@ class Shape;
 #include "Shapes/Cylinder.h"
 #include "Shapes/Fractal.h"
 
-////////////////////////////////////////////////////////////////////////
-// Data structures for storing meshes -- mostly used for model files
-// read in via ASSIMP.
-//
-// A MeshData holds two lists (stl::vector) one for vertices
-// (VertexData: consisting of point, normal, texture, and tangent
-// vectors), and one for triangles (TriData: consisting of three
-// indices into the vertex array).
-typedef Eigen::Matrix<unsigned int, 3, 1> TriData;
-
-class VertexData
-{
-public:
-  Eigen::Vector3f pnt;
-  Eigen::Vector3f nrm;
-  Eigen::Vector2f tex;
-  Eigen::Vector3f tan;
-  VertexData(const Eigen::Vector3f &p, const Eigen::Vector3f &n, const Eigen::Vector2f &t, const Eigen::Vector3f &a)
-      : pnt(p), nrm(n), tex(t), tan(a) {}
-};
-
-struct MeshData
-{
-  std::vector<VertexData> vertices;
-  std::vector<TriData> triangles;
-  Material *mat;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// Scene
-class Realtime;
-
 class Tracer
 {
 public:
@@ -72,18 +40,19 @@ public:
   bool first_load{ true };
   bool isPaused{ false };
 
-  enum DEBUG_MODE
+  enum TRACE_MODE
   {
-    NONE,
+    FULL,
     NORMAL,
     DEPTH,
     DIFFUSE,
     SIMPLE,
     POSITION,
+    PATH_RATIO,
     NUM_MODES
   };
 
-  DEBUG_MODE DefaultMode = DEBUG_MODE::SIMPLE;
+  TRACE_MODE DefaultMode = TRACE_MODE::SIMPLE;
 
   Tracer();
   void Finit();
@@ -97,6 +66,7 @@ public:
   // tracing functions
   float TraceImage(ImageData &id, bool update_pass, int n_threads);
   void SinglePixelInfoTrace(ImageData &id, int x, int y);
+  std::string SinglePixelDebugTrace(ImageData &id, int x, int y);
 
   // ray direction selection vars/functions
   bool depth_of_field{ false };
@@ -109,7 +79,7 @@ public:
 
   // tracer support functions
   Color BVHTracePath(Ray &r, Minimizer &minimizer, bool option);
-  Color BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE m);
+  Color BVHTraceDebug(Ray &r, Minimizer &minimizer, TRACE_MODE m);
   void SampleLight(Intersection &I);
   Eigen::Vector3f GetBeers(const float t, Eigen::Vector3f Kt);
   Eigen::Vector3f EvalScattering(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Eigen::Vector3f &w_i, Intersection &s);
@@ -127,7 +97,4 @@ public:
   float info_dist;
   std::string info_name;
   Eigen::Vector3f info_pos;
-
-  // for progress bar
-  float pixel_num;
 };

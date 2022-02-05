@@ -13,7 +13,7 @@
 #define NOMINMAX
 #include <windows.h>
 
-#include "raytrace.h"
+#include "Tracer.h"
 #include "Display.h"
 #include "BMP.h"
 #include "ImageData.h"
@@ -32,30 +32,34 @@ Display *display;
 std::vector<char> baseNameArr(255);
 std::string baseName, bmpName;
 
+std::string singleTrace;
+
 //tracer state settings
 bool shouldReset = false;
 bool uiResized = false;
 bool isEnteringText = false;
 bool shouldReload = false;
 std::string sceneName;
+int tracer_mode;
 
-float previewRatio = 0.1f;
-float min_ratio;
-
+// gui variables/settings
 float traceDuration = 0;
 float traceDiff = 0;
 
+// fps vars
 float guiFPS = 0;
-
 int maxFPS = 90;
 float maxMsToWait;
 
+// preview vars
 std::list<float> msToWaitHistory;
 float totalFromMsHistory = 0;
+float previewRatio = 0.1f;
+float min_ratio;
 
 //may return 0 when not able to detect
 const auto processorCount = std::thread::hardware_concurrency();
-int numThreadsToUse = processorCount - 1;
+int numThreadsToUse = std::max(1, (int)processorCount - 1);
 
 void ResetTrace();
 void ResetFileName();
@@ -189,6 +193,8 @@ void SetupScene()
   ResizeImages();
 
   ResetFPS();
+
+  tracer_mode = tracer->DefaultMode;
 }
 
 void DrawGUI()
@@ -213,10 +219,10 @@ void DrawGUI()
   if (ImGui::CollapsingHeader("under mouse", ImGuiTreeNodeFlags_DefaultOpen))
   {
     ImGui::Text("pos: (%d,%d)", display->mouse_x, display->mouse_y);
-
-    ImGui::Text("name: %s", tracer->info_name.data());
+    ImGui::Text("object: %s", tracer->info_name.data());
     ImGui::Text("distance: %.4f", tracer->info_dist);
     ImGui::Text("position: (%.2f, %.2f, %.2f)", tracer->info_pos[0], tracer->info_pos[1], tracer->info_pos[2]);
+    ImGui::Text(singleTrace.data());
   }
 
   ImGui::BeginChild("settings");
@@ -266,23 +272,16 @@ void DrawGUI()
       uiResized = true;
     }
     const char *items[] = {
-      "NONE",
+      "FULL",
       "NORMAL",
       "DEPTH",
       "DIFFUSE",
       "SIMPLE",
       "POSITION",
+      "DEPTH_RATIO",
     };
-    static int item_current = tracer->DefaultMode;
-    if (ImGui::Combo("render_type", &item_current, items, 6, 4))
+    if (ImGui::Combo("render_type", &tracer_mode, items, 7, 4))
     {
-      tracer->DefaultMode = static_cast<Tracer::DEBUG_MODE>(item_current);
-      // starting render, disable inputs
-      if (tracer->DefaultMode == Tracer::DEBUG_MODE::NONE)
-      {
-        tracer->camera.controlsEnabled = false;
-        srand(427857);
-      }
       ResetTrace();
     }
     if (ImGui::Checkbox("can_receive_input", &tracer->camera.controlsEnabled))
@@ -387,6 +386,16 @@ void InterfaceLoop()
       if (shouldReset)
       {
         image.Clear();
+
+        //this has to happen here due to the potentially different trace times that modes can result in
+        tracer->DefaultMode = static_cast<Tracer::TRACE_MODE>(tracer_mode);
+
+        // starting render, disable inputs
+        if (tracer->DefaultMode == Tracer::TRACE_MODE::FULL)
+        {
+          tracer->camera.controlsEnabled = false;
+          srand(427857);
+        }
         shouldReset = false;
       }
 
@@ -451,7 +460,7 @@ int main(int argc, char **argv)
   bool autoStart = argc > 1 ? true : false;
 
   if (autoStart)
-    tracer->DefaultMode = Tracer::DEBUG_MODE::DIFFUSE;
+    tracer->DefaultMode = Tracer::TRACE_MODE::DIFFUSE;
 
   // run interface loop
   auto it = std::thread(InterfaceLoop);
@@ -465,7 +474,7 @@ int main(int argc, char **argv)
     {
       if (!shouldReload)
         tracer->SinglePixelInfoTrace(image, display->mouse_x, display->mouse_y);
-      if ((image.trace_num < 2 && tracer->DefaultMode != Tracer::DEBUG_MODE::NONE) || shouldReset)
+      if ((image.trace_num < 2 && tracer->DefaultMode != Tracer::TRACE_MODE::FULL) || shouldReset)
       {
         float diff = tracer->TraceImage(preview, false, numThreadsToUse);
         display->DrawArray(preview);
@@ -480,6 +489,13 @@ int main(int argc, char **argv)
     }
 
     display->UpdateEvent();
+
+    if (display->clickRequest)
+    {
+      if (display->real_mouse_x < display->window_width - display->gui_width)
+        singleTrace = tracer->SinglePixelDebugTrace(image, display->mouse_x, display->mouse_y);
+      display->clickRequest = false;
+    }
 
     if (display->active && !isEnteringText && tracer->camera.controlsEnabled)
     {

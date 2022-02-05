@@ -15,6 +15,7 @@
     <RootNamespace>CS350framework</RootNamespace>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <ProjectName>EnvyTrace</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -111,7 +112,7 @@
       <AdditionalLibraryDirectories>
       </AdditionalLibraryDirectories>
       <Profile>true</Profile>
-      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
       <Command>xcopy .\libs\assimp\32\assimp.dll .\Release /Y /D</Command>
@@ -140,7 +141,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Ray.cpp" />
-    <ClCompile Include="raytrace.cpp" />
+    <ClCompile Include="Tracer.cpp" />
     <ClCompile Include="Shapes\Box.cpp" />
     <ClCompile Include="Shapes\Cylinder.cpp" />
     <ClCompile Include="Shapes\Fractal.cpp" />
@@ -164,7 +165,7 @@
     <ClInclude Include="Minimizer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Ray.h" />
-    <ClInclude Include="raytrace.h" />
+    <ClInclude Include="Tracer.h" />
     <ClInclude Include="Shapes\Box.h" />
     <ClInclude Include="Shapes\Cylinder.h" />
     <ClInclude Include="Shapes\Fractal.h" />

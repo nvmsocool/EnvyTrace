@@ -7,24 +7,19 @@ class Material
 {
 public:
   Eigen::Vector3f Kd, Ks;
-  float alpha, specularity;
-  unsigned int texid;
+  float specularity;
 
   virtual bool isLight() { return _isLight; }
   virtual bool RenderGUI(size_t shape_num);
 
-  Material() : Kd(Eigen::Vector3f(1.0, 0.5, 0.0)), Ks(Eigen::Vector3f(1, 1, 1)), alpha(1.0), specularity(0.0f), texid(0), _isLight(false) {}
-  Material(const Eigen::Vector3f d, const Eigen::Vector3f s, const float a, const float sp)
-      : Kd(d), Ks(s), alpha(a), specularity(sp), texid(0), _isLight(false) {}
-  Material(const Eigen::Vector3f d, const Eigen::Vector3f s, const float a, const float sp, const Eigen::Vector3f t, const float i, const float o)
-      : Kd(d), Ks(s), alpha(a), specularity(sp), texid(0), _isLight(false) {}
+  Material() : Kd(Eigen::Vector3f(1.0, 0.5, 0.0)), Ks(Eigen::Vector3f(1, 1, 1)), specularity(0.0f), _isLight(false) {}
+  Material(const Eigen::Vector3f d, const Eigen::Vector3f s, const float sp)
+      : Kd(d), Ks(s), specularity(sp), _isLight(false) {}
   Material(Material &o)
   {
     Kd = o.Kd;
     Ks = o.Ks;
-    alpha = o.alpha;
     specularity = o.specularity;
-    texid = o.texid;
     _isLight = o._isLight;
   }
 
@@ -41,7 +36,6 @@ public:
 
 protected:
   bool _isLight;
-  //virtual void apply(const unsigned int program);
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -54,7 +48,7 @@ public:
   {
     light_value = e;
     _isLight = _isLightParm;
-    alpha = 1;
+    specularity = 0;
     Kd = Eigen::Vector3f::Ones();
     Ks = Eigen::Vector3f::Ones();
   }

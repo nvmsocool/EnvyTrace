@@ -2,7 +2,7 @@
 // Provides the framework for a raytracer.
 ////////////////////////////////////////////////////////////////////////
 
-#include "raytrace.h"
+#include "Tracer.h"
 #include "Ray.h"
 #include <Eigen_unsupported/Eigen/src/BVH/BVAlgorithms.h>
 
@@ -109,10 +109,7 @@ void Tracer::Command(const std::vector<std::string> &strings,
     // First rgb is Diffuse reflection, second is specular reflection.
     // third is beer's law transmission followed by index of refraction.
     // Creates a Material instance to be picked up by successive shapes
-    if (f.size() >= 14)
-      materials.push_back(Material(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], f[8], Eigen::Vector3f(f[9], f[10], f[11]), f[12], f[13]));
-    else
-      materials.push_back(Material(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], f[8]));
+    materials.push_back(Material(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7]));
     currentMat = &(materials[materials.size() - 1]);
   }
 
@@ -194,8 +191,7 @@ float Tracer::TraceImage(ImageData &id, bool update_pass, int n_threads)
 
   float diff = 0;
   float weight = 1.f / static_cast<float>(id.trace_num);
-  float denom = (float)(id.data.size());
-  pixel_num = 0;
+  id.pixel_num = 0;
 
 #pragma omp parallel for schedule(dynamic, 1) num_threads(n_threads) // Magic: Multi-thread y loop
   for (int y = 0; y < id.h; y++)
@@ -218,15 +214,15 @@ float Tracer::TraceImage(ImageData &id, bool update_pass, int n_threads)
 
       int pos = y_add + x;
       Color old = id.data[pos];
-      if (DefaultMode == Tracer::DEBUG_MODE::NONE)
+      if (DefaultMode == Tracer::TRACE_MODE::FULL)
         id.data[pos] = (1 - weight) * old + weight * BVHTracePath(r, minimizer, false);
       else
         id.data[pos] = (1 - weight) * old + weight * BVHTraceDebug(r, minimizer, DefaultMode);
 
       if (update_pass)
         diff += std::abs(old.x() - id.data[pos].x()) + std::abs(old.y() - id.data[pos].y()) + std::abs(old.z() - id.data[pos].z());
-      pixel_num += 1.f;
-      id.pctComplete = pixel_num / denom;
+      id.pixel_num += 1.f;
+      id.pctComplete = id.pixel_num / (float)(id.data.size());
     }
   }
 
@@ -269,6 +265,73 @@ void Tracer::SinglePixelInfoTrace(ImageData &id, int x, int _y)
     info_name = "N/A";
     info_pos = Eigen::Vector3f::Zero();
   }
+}
+
+std::string GetCollisionInfo(Minimizer& m)
+{
+  if (m.closest_int.object != nullptr)
+  {
+    std::string ret = "Ray Hit:\n";
+    ret += "  Object: " + m.closest_int.object->name + "\n";
+    ret += "  Disatnce: " + std::to_string(m.closest_int.t) + "\n";
+    ret += "  Position: (" + std::to_string(m.closest_int.P[0]) + ", " + std::to_string(m.closest_int.P[1]) + ", " + std::to_string(m.closest_int.P[2]) +")\n";
+    return ret;
+  }
+  else
+  {
+    return "Ray Missed\n";
+  }
+}
+
+std::string Tracer::SinglePixelDebugTrace(ImageData &id, int x, int _y)
+{
+  int y = id.h - _y;
+  int y_add = y * id.w;
+
+  if (halfDome)
+    SetRayHalfDome(id, InfoRay, x, y);
+  else
+    SetRayDirect(id, InfoRay, x, y);
+
+  InfoMinimizer.closest_int.Reset();
+  Eigen::BVMinimize(Tree, InfoMinimizer);
+
+  std::string ret = "Trace at (" + std::to_string(x) + "," + std::to_string(y) + "):\n";
+  ret += GetCollisionInfo(InfoMinimizer);
+
+  if (InfoMinimizer.closest_int.object == nullptr)
+    return ret;
+
+  // prepare for next traces
+  Intersection P = InfoMinimizer.closest_int;
+  float RussianRoulette = 0.8f;
+  Eigen::Vector3f N = P.N;
+  Eigen::Vector3f w_i, w_o;
+  w_o = -InfoRay.direction;
+
+  while (randf() < RussianRoulette)
+  {
+    // always starts here
+    InfoRay.origin = P.P;
+    N = P.N;
+
+    //extend path
+    w_i = SampleBRDF(w_o, N, P);
+
+    Intersection &Q = FireRayIntoScene(InfoMinimizer, w_i);
+
+    // append trace info
+    ret += GetCollisionInfo(InfoMinimizer);
+
+    //if intersection doesn't exist, break
+    if (Q.object == nullptr || Q.object->material->isLight())
+      break;
+
+    P = Q;
+    w_o = -w_i;
+  }
+
+  return ret;
 }
 
 void Tracer::SetRayDirect(ImageData &id, Ray &r, int x, int y)
@@ -326,10 +389,9 @@ void Tracer::SetRayHalfDome(ImageData &id, Ray &r, int x, int y)
   float x_d = sinTheta * std::cos(phi);
   float y_d = sinTheta * std::sin(phi);
   r.direction = camera.rotation._transformVector(Eigen::Vector3f(x_d, y_d, z_d)).normalized();
-
 }
 
-Color Tracer::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
+Color Tracer::BVHTraceDebug(Ray &r, Minimizer &minimizer, TRACE_MODE mode)
 {
   Eigen::Vector3f color(0.001f, 0.001f, 0.001f);
   minimizer.closest_int.Reset();
@@ -338,7 +400,7 @@ Color Tracer::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
 
   if (minimizer.closest_int.object != nullptr)
   {
-    if (mode == DEBUG_MODE::SIMPLE)
+    if (mode == TRACE_MODE::SIMPLE)
     {
       for (auto l : lights_p)
       {
@@ -350,14 +412,49 @@ Color Tracer::BVHTraceDebug(Ray &r, Minimizer &minimizer, DEBUG_MODE mode)
         color += static_cast<Light *>(l->material)->light_value.cwiseProduct(EvalScattering(w_o, i.N, w_i, i));
       }
     }
-    else if (mode == DEBUG_MODE::NORMAL)
+    else if (mode == TRACE_MODE::NORMAL)
       color = Eigen::Vector3f(std::abs(minimizer.closest_int.N.x()), std::abs(minimizer.closest_int.N.y()), std::abs(minimizer.closest_int.N.z()));
-    else if (mode == DEBUG_MODE::DEPTH)
+    else if (mode == TRACE_MODE::DEPTH)
       color = minimizer.closest_int.t * Eigen::Vector3f(1.f, 1.f / 10.f, 1.f / 100.f);
-    else if (mode == DEBUG_MODE::DIFFUSE)
+    else if (mode == TRACE_MODE::DIFFUSE)
       color = minimizer.closest_int.Kd.x() > 0 ? minimizer.closest_int.Kd : minimizer.closest_int.object->material->Kd;
-    else if (mode == DEBUG_MODE::POSITION)
+    else if (mode == TRACE_MODE::POSITION)
       color = minimizer.closest_int.P / 5.f;
+    else if (mode == TRACE_MODE::PATH_RATIO)
+    {
+      float first_depth = minimizer.closest_int.t;
+      float total_depth = first_depth;
+
+      // prepare for next traces
+      Intersection P = minimizer.closest_int;
+      float RussianRoulette = 0.8f;
+      Eigen::Vector3f N = P.N;
+      Eigen::Vector3f w_i, w_o;
+      w_o = -r.direction;
+
+      while (randf() < RussianRoulette)
+      {
+        // always starts here
+        r.origin = P.P;
+        N = P.N;
+
+        //extend path
+        w_i = SampleBRDF(w_o, N, P);
+
+        Intersection &Q = FireRayIntoScene(minimizer, w_i);
+
+        //if intersection doesn't exist, break
+        if (Q.object == nullptr || Q.object->material->isLight())
+          break;
+
+        total_depth += Q.t;
+
+        P = Q;
+        w_o = -w_i;
+      }
+
+      color = (first_depth / total_depth) * Eigen::Vector3f::Ones();
+    }
   }
   return color;
 }
@@ -712,11 +809,9 @@ Eigen::Vector3f Tracer::SampleBRDF(Eigen::Vector3f &w_o, Eigen::Vector3f &N, Int
   float r2 = randf();
   float selector = randf();
   float prob_spec = s.object->material->specularity;
-  //float prob_trans = s.object->material->translucency;
-  //if (selector < prob_trans + prob_spec)
   if (selector < prob_spec)
   {
-    float theta = atan(s.object->material->alpha * std::sqrt(r1) / std::sqrt(1 - r1));
+    float theta = atan(s.object->material->specularity * std::sqrt(r1) / std::sqrt(1 - r1));
     Eigen::Vector3f m = SampleLobe(N, cos(theta), pi_2 * r2);
 
     //specular

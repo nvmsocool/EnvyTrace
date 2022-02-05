@@ -10,7 +10,6 @@
     <ClCompile Include="Minimizer.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="Ray.cpp" />
-    <ClCompile Include="raytrace.cpp" />
     <ClCompile Include="Shapes\Shape.cpp">
       <Filter>Shapes</Filter>
     </ClCompile>
@@ -46,6 +45,7 @@
       <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="libs\imgui-master\imgui_tables.cpp" />
+    <ClCompile Include="Tracer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Bbox.h" />
@@ -58,7 +58,6 @@
     <ClInclude Include="Minimizer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Ray.h" />
-    <ClInclude Include="raytrace.h" />
     <ClInclude Include="Shapes\Shape.h">
       <Filter>Shapes</Filter>
     </ClInclude>
@@ -94,6 +93,7 @@
     <ClInclude Include="libs\imgui-master\backends\imgui_impl_opengl3_loader.h">
       <Filter>imgui</Filter>
     </ClInclude>
+    <ClInclude Include="Tracer.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />

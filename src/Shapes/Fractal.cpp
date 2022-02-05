@@ -9,7 +9,7 @@ void Fractal::Intersect(const Ray &in, Intersection &i)
 {
   // plan: step along hte ray, starting at the ray point, with the step size of DE.
   // if it keeps getting bigger then return no intersection
-  // else if its below a threshold, return an intersection?
+  // else if its below a threshold, return an intersection
 
   float dist = 0;
   int colorsteps = 0;
@@ -130,6 +130,7 @@ bool Fractal::RenderGUI(size_t n)
       "TRANSLATE",
       "MODULO",
       "POWER",
+      "C_ITERATION"
     };
 
     if (ImGui::Combo((std::string("type##") + std::to_string(n) + std::to_string(i)).data(), &CombinedActions[i].action_type, items, IM_ARRAYSIZE(items), 4))
@@ -157,6 +158,9 @@ bool Fractal::RenderGUI(size_t n)
         break;
       case Fractal::ACTION_TYPE::POWER:
         CombinedActions[i].VecOp = Eigen::Vector3f(1, 1, 1);
+        break;
+      case Fractal::ACTION_TYPE::C_ITERATION:
+        CombinedActions[i].IntOp = 0;
         break;
       }
       CombinedActions[i].VecOp = CombinedActions[i].DisplayOp;
@@ -194,6 +198,9 @@ bool Fractal::RenderGUI(size_t n)
       break;
     case Fractal::ACTION_TYPE::POWER:
       something_changed |= ImGui::DragFloat3((std::string("power##") + std::to_string(n) + std::to_string(i)).data(), CombinedActions[i].VecOp.data(), 0.001f, -1000, 1000, "%.3f");
+      break;
+    case Fractal::ACTION_TYPE::C_ITERATION:
+      something_changed |= ImGui::DragInt((std::string("c_iteration##") + std::to_string(n) + std::to_string(i)).data(), &CombinedActions[i].IntOp, 1, 0, 10000, "%.3f");
       break;
     }
     if (ImGui::Button((std::string("+##") + std::to_string(n) + std::to_string(i)).data()))
@@ -251,31 +258,38 @@ std::string Fractal::Serialize()
   for (auto a : CombinedActions)
   {
     ret += std::to_string(a.action_type) + " ";
-    Eigen::Vector3f to_write;
-    switch (a.action_type)
+    if (a.action_type == ACTION_TYPE::C_ITERATION)
     {
-    case ACTION_TYPE::FOLD:
-      to_write = a.DisplayOp;
-      break;
-    case ACTION_TYPE::ROTATION:
-      to_write = a.DisplayOp;
-      break;
-    case ACTION_TYPE::SCALE:
-      to_write = a.VecOp;
-      break;
-    case ACTION_TYPE::TRANSLATE:
-      to_write = a.VecOp;
-      break;
-    case ACTION_TYPE::MODULO:
-      to_write = a.VecOp;
-      break;
-    case ACTION_TYPE::POWER:
-      to_write = a.VecOp;
-      break;
+      ret += std::to_string(a.IntOp) + " ";
     }
-    for (size_t i = 0; i < 3; i++)
+    else
     {
-      ret += std::to_string(to_write[i]) + " ";
+      Eigen::Vector3f to_write;
+      switch (a.action_type)
+      {
+      case ACTION_TYPE::FOLD:
+        to_write = a.DisplayOp;
+        break;
+      case ACTION_TYPE::ROTATION:
+        to_write = a.DisplayOp;
+        break;
+      case ACTION_TYPE::SCALE:
+        to_write = a.VecOp;
+        break;
+      case ACTION_TYPE::TRANSLATE:
+        to_write = a.VecOp;
+        break;
+      case ACTION_TYPE::MODULO:
+        to_write = a.VecOp;
+        break;
+      case ACTION_TYPE::POWER:
+        to_write = a.VecOp;
+        break;
+      }
+      for (size_t i = 0; i < 3; i++)
+      {
+        ret += std::to_string(to_write[i]) + " ";
+      }
     }
   }
   return ret;
@@ -297,10 +311,17 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
 
   float r = z.squaredNorm();
   int trace_num;
+  bool skip = false;
   for (trace_num = 0; trace_num < num_subdivisions && r < bailout_dist; trace_num++)
   {
     for (size_t i = 0; i < CombinedActions.size(); i++)
     {
+      if (skip)
+      {
+        skip = false;
+        continue;
+      }
+
       switch (CombinedActions[i].action_type)
       {
       case ACTION_TYPE::FOLD: // fold
@@ -321,6 +342,9 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
       case ACTION_TYPE::POWER: //translation
         Action_Power(z, i);
         break;
+      case ACTION_TYPE::C_ITERATION:
+        skip = CombinedActions[i].IntOp < 1 || trace_num > CombinedActions[i].IntOp;
+        break;
       }
     }
 
@@ -328,57 +352,6 @@ float Fractal::DE_Generic(Eigen::Vector3f _z)
   }
 
   return (std::sqrt(r) - 2.f) * (float)std::pow(Scale, -trace_num);
-}
-
-bool Fractal::Action_Fold_Color(Eigen::Vector3f &p, size_t fold_index)
-{
-  float dot = p.dot(CombinedActions[fold_index].VecOp);
-  if (dot < 0)
-  {
-    p -= dot * CombinedActions[fold_index].VecOp2;
-    return true;
-  }
-  return false;
-}
-
-void Fractal::Action_Fold(Eigen::Vector3f &p, size_t fold_index)
-{
-  float dot = p.dot(CombinedActions[fold_index].VecOp);
-  if (dot < 0)
-    p -= dot * CombinedActions[fold_index].VecOp2;
-}
-
-void Fractal::Action_Rotate(Eigen::Vector3f &p, size_t rot_index)
-{
-  p = CombinedActions[rot_index].QuatOp._transformVector(p);
-}
-
-void Fractal::Action_Scale(Eigen::Vector3f &p, size_t scale_index)
-{
-  p = p.cwiseProduct(CombinedActions[scale_index].VecOp);
-}
-
-void Fractal::Action_Translate(Eigen::Vector3f &p, size_t trans_index)
-{
-  p = p + CombinedActions[trans_index].VecOp;
-}
-
-
-void Fractal::Action_Modulo(Eigen::Vector3f &p, size_t index)
-{
-  for (size_t i = 0; i < 3; i++)
-    p[i] = fmod(p[i], CombinedActions[index].VecOp[i]);
-}
-
-void Fractal::Action_Power(Eigen::Vector3f &p, size_t index)
-{
-  for (size_t i = 0; i < 3; i++)
-  {
-    if (p[i] < 0)
-      p[i] = -std::pow(-p[i], CombinedActions[index].VecOp[i]);
-    else
-      p[i] = std::pow(p[i], CombinedActions[index].VecOp[i]);
-  }
 }
 
 Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
@@ -421,6 +394,70 @@ Eigen::Vector3f Fractal::FoldBased(Eigen::Vector3f _z)
   }
 
   return c;
+}
+
+bool Fractal::Action_Fold_Color(Eigen::Vector3f &p, size_t fold_index)
+{
+  float dot = p.dot(CombinedActions[fold_index].VecOp);
+  if (dot < 0)
+  {
+    p -= dot * CombinedActions[fold_index].VecOp2;
+    return true;
+  }
+  return false;
+}
+
+void Fractal::Action_Fold(Eigen::Vector3f &p, size_t fold_index)
+{
+  float dot = p.dot(CombinedActions[fold_index].VecOp);
+  if (dot < 0)
+    p -= dot * CombinedActions[fold_index].VecOp2;
+}
+
+void Fractal::Action_Rotate(Eigen::Vector3f &p, size_t rot_index)
+{
+  p = CombinedActions[rot_index].QuatOp._transformVector(p);
+}
+
+void Fractal::Action_Scale(Eigen::Vector3f &p, size_t scale_index)
+{
+  p = p.cwiseProduct(CombinedActions[scale_index].VecOp);
+}
+
+void Fractal::Action_Translate(Eigen::Vector3f &p, size_t trans_index)
+{
+  p = p + CombinedActions[trans_index].VecOp;
+}
+
+float SanityMod(float x, float m)
+{
+  float ret = x;
+  if (m == 0)
+    return ret;
+  float sign = x > 0 ? 1.f : -1.f;
+  while (abs(ret) > m)
+  {
+    ret -= sign * m;
+  }
+  return ret;
+}
+
+
+void Fractal::Action_Modulo(Eigen::Vector3f &p, size_t index)
+{
+  for (size_t i = 0; i < 3; i++)
+    p[i] = SanityMod(p[i], CombinedActions[index].VecOp[i]);
+}
+
+void Fractal::Action_Power(Eigen::Vector3f &p, size_t index)
+{
+  for (size_t i = 0; i < 3; i++)
+  {
+    if (p[i] < 0)
+      p[i] = -std::pow(-p[i], CombinedActions[index].VecOp[i]);
+    else
+      p[i] = std::pow(p[i], CombinedActions[index].VecOp[i]);
+  }
 }
 
 int Fractal::NumFolds()

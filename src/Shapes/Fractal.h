@@ -49,6 +49,7 @@ public:
     TRANSLATE,
     MODULO,
     POWER,
+    C_ITERATION,
     NUM_TYPES
   };
 
@@ -57,6 +58,7 @@ public:
     int action_type;
     Eigen::Vector3f DisplayOp, VecOp, VecOp2, Color;
     Eigen::Quaternionf QuatOp;
+    int IntOp;
   };
 
   std::vector<ActionData> CombinedActions;

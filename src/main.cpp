@@ -24,13 +24,27 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+
+#include <vector>
+#include <cstdint>
+#include <gif-h-master/gif.h>
+
+
+GifWriter *gif_writer;
+bool wannaTraceGif{ false };
+bool isTracingGif{ false };
+int numGifFrames{ 10 };
+int currentGifFrame{ 0 };
+int gifDelay{ 100 };
+int tracesPerGifFrame{ 3 };
+
 ImageData image, preview;
 
 //tracer variables
 Tracer *tracer;
 Display *display;
 std::vector<char> baseNameArr(255);
-std::string baseName, bmpName;
+std::string baseName, bmpName, gifName;
 
 std::string singleTrace;
 
@@ -63,6 +77,7 @@ int numThreadsToUse = std::max(1, (int)processorCount - 1);
 
 void ResetTrace();
 void ResetFileName();
+void HandleGifFrame();
 
 
 // Read a scene file by parsing each line as a command and calling
@@ -292,6 +307,40 @@ void DrawGUI()
       ResetFPS();
     ImGui::SliderInt("threads", &numThreadsToUse, 1, processorCount);
     ImGui::Checkbox("isPaused", &tracer->isPaused);
+    ImGui::Checkbox("gif_render", &wannaTraceGif);
+    if (wannaTraceGif)
+    {
+      if (isTracingGif)
+      {
+        ImGui::Text(("Frame: " + std::to_string(currentGifFrame)).data());
+        if (ImGui::Button("Stop"))
+        {
+          GifEnd(gif_writer);
+          isTracingGif = false;
+        }
+      }
+      else
+      {
+        if (ImGui::Button("Frame0"))
+        {
+          tracer->TakeSnapshot(0);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Frame1"))
+        {
+          tracer->TakeSnapshot(1);
+        }
+        ImGui::InputInt("num_gif_frames", &numGifFrames);
+        ImGui::InputInt("frame_delay", &gifDelay);
+        ImGui::InputInt("traces_per_frame", &tracesPerGifFrame);
+        if (ImGui::Button("Start"))
+        {
+          isTracingGif = true;
+          tracer->camera.controlsEnabled = false;
+          currentGifFrame = -1;
+        }
+      }
+    }
 
     ImGui::Unindent(16.0f);
   }
@@ -373,6 +422,7 @@ void ResetTrace()
 {
   shouldReset = true;
   preview.Clear();
+  traceDiff = 100;
 }
 
 void InterfaceLoop()
@@ -413,9 +463,12 @@ void InterfaceLoop()
         shouldReload = false;
       }
 
+      if (isTracingGif)
+        HandleGifFrame();
+
       auto start_time = std::chrono::high_resolution_clock::now();
 
-      bool update_pass = (image.trace_num - 1) % 10 == 0;
+      bool update_pass = (image.trace_num - 1) % 10 == 0 || wannaTraceGif || isTracingGif;
       float diff = tracer->TraceImage(image, update_pass, numThreadsToUse);
       if (update_pass)
         traceDiff = diff;
@@ -424,7 +477,7 @@ void InterfaceLoop()
       float ms = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
       traceDuration = ms / 1000000.f;
 
-      if (update_pass)
+      if (update_pass && !isTracingGif)
       {
         //just in case...
         generateBitmapImage(image, bmpName.data());
@@ -437,6 +490,64 @@ void ResetFileName()
 {
   sceneName = baseName + ".scn";
   bmpName = baseName + ".bmp";
+  gifName = baseName + ".gif";
+}
+
+void HandleGifFrame()
+{
+
+  if (currentGifFrame == -1)
+  {
+    GifBegin(gif_writer, gifName.data(), tracer->requested_width, tracer->requested_height, gifDelay);
+    currentGifFrame = 0;
+    tracer->InterpolateSnapshots(0);
+    ResetTrace();
+    return;
+  }
+
+  //exit if convergence is above threshold
+  if (image.trace_num <= tracesPerGifFrame)
+    return;
+
+  //write gif frame
+  int width = tracer->requested_width;
+  int height = tracer->requested_height;
+  std::vector<uint8_t> frame(width * height * 4, 0);
+
+  for (int y = 0; y < height; y++)
+  {
+    int y_add = y * width;
+    for (int x = 0; x < width; x++)
+    {
+      int pos = y_add + x;
+      for (size_t k = 0; k < 4; k++)
+      {
+        frame[pos * 4 + k] = (uint8_t)(255.f * image.data[pos][k]);
+      }
+    }
+  }
+
+  GifWriteFrame(gif_writer, frame.data(), width, height, gifDelay);
+
+  //advance frame count
+  currentGifFrame++;
+
+  // exit or reset
+  if (currentGifFrame > numGifFrames)
+  {
+    //   pause trace
+    tracer->isPaused;
+
+    //   end gif
+    GifEnd(gif_writer);
+    isTracingGif = false;
+  }
+  else
+  {
+    //set current state by interpolate between start and end states
+    tracer->InterpolateSnapshots((float)(currentGifFrame) / (float)(numGifFrames));
+    ResetTrace();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -445,6 +556,7 @@ int main(int argc, char **argv)
 
   tracer = new Tracer();
   display = new Display();
+  gif_writer = new GifWriter();
 
   // Read the command line argument
   baseName = (argc > 1) ? argv[1] : "testscene";

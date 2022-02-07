@@ -32,6 +32,9 @@ public:
   bool RenderGUI(size_t i);
   virtual std::string Serialize();
 
+  virtual Shape *Clone();
+  virtual void SetFromInterpolation(Shape *a, Shape *b, float t);
+
   int max_iteration{ 100 };
   float min_distance{ 0.001f };
   int num_subdivisions{ 11 };

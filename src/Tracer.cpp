@@ -16,29 +16,7 @@ void Tracer::Finit()
 {
   std::srand(1234567);
 
-  objects_p.clear();
   lights_p.clear();
-  for (size_t i = 0; i < spheres.size(); i++)
-  {
-    objects_p.push_back(static_cast<Shape *>(&(spheres[i])));
-    spheres[i].name += std::to_string(i);
-  }
-  for (size_t i = 0; i < boxes.size(); i++)
-  {
-    objects_p.push_back(&(boxes[i]));
-    boxes[i].name += std::to_string(i);
-  }
-  for (size_t i = 0; i < cylinders.size(); i++)
-  {
-    objects_p.push_back(&(cylinders[i]));
-    cylinders[i].name += std::to_string(i);
-  }
-  for (size_t i = 0; i < fractals.size(); i++)
-  {
-    fractals[i].GenColors();
-    objects_p.push_back(&(fractals[i]));
-    fractals[i].name += std::to_string(i);
-  }
   for (size_t i = 0; i < objects_p.size(); i++)
   {
     shapes_by_material[objects_p[i]->material].push_back(objects_p[i]);
@@ -50,17 +28,12 @@ void Tracer::Finit()
 
 void Tracer::ClearAll()
 {
+  for (auto o : objects_p)
+  {
+    delete o;
+  }
   objects_p.clear();
   lights_p.clear();
-
-  spheres.clear();
-  spheres.reserve(100);
-  boxes.clear();
-  boxes.reserve(100);
-  cylinders.clear();
-  cylinders.reserve(100);
-  fractals.clear();
-  fractals.reserve(100);
 
   materials.clear();
   materials.reserve(100);
@@ -74,6 +47,11 @@ void Tracer::Command(const std::vector<std::string> &strings,
   if (strings.size() == 0)
     return;
   std::string c = strings[0];
+
+  int num_boxes = 0;
+  int num_spheres = 0;
+  int num_cylinders = 0;
+  int num_fractals = 0;
 
   if (c == "screen")
   {
@@ -126,21 +104,27 @@ void Tracer::Command(const std::vector<std::string> &strings,
   {
     // syntax: sphere x y z   r
     // Creates a Shape instance for a sphere defined by a center and radius
-    spheres.push_back(Sphere(f[4], Eigen::Vector3f(f[1], f[2], f[3]), currentMat));
+    Sphere *s = new Sphere(f[4], Eigen::Vector3f(f[1], f[2], f[3]), currentMat);
+    s->name += std::to_string(num_spheres++);
+    objects_p.push_back(static_cast<Shape*>(s));
   }
 
   else if (c == "box")
   {
     // syntax: box bx by bz   dx dy dz
     // Creates a Shape instance for a box defined by a corner point and diagonal vector
-    boxes.push_back(Box(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), currentMat));
+    Box *b = new Box(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), currentMat);
+    b->name += std::to_string(num_boxes++);
+    objects_p.push_back(static_cast<Shape*>(b));
   }
 
   else if (c == "cylinder")
   {
     // syntax: cylinder bx by bz   ax ay az  r
     // Creates a Shape instance for a cylinder defined by a base point, axis vector, and radius
-    cylinders.push_back(Cylinder(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], currentMat));
+    Cylinder *c = new Cylinder(Eigen::Vector3f(f[1], f[2], f[3]), Eigen::Vector3f(f[4], f[5], f[6]), f[7], currentMat);
+    c->name += std::to_string(num_cylinders++);
+    objects_p.push_back(static_cast<Shape*>(c));
   }
 
   else if (c == "fractal")
@@ -148,8 +132,7 @@ void Tracer::Command(const std::vector<std::string> &strings,
     // syntax: fractal x y z   s
     // Creates a Fractal instance for a fractal defined by at x,y,z with scale s
     Eigen::Quaternionf rot = EulerToQuat(Eigen::Vector3f(f[5], f[6], f[7]));
-    fractals.push_back(Fractal(f[4], Eigen::Vector3f(f[1], f[2], f[3]), rot, currentMat));
-    Fractal *fr = &fractals[fractals.size() - 1];
+    Fractal *fr = new Fractal(f[4], Eigen::Vector3f(f[1], f[2], f[3]), rot, currentMat);
     fr->SetRecursionProperties((int)f[8], (int)f[9], f[10]);
 
     size_t current_index = 11;
@@ -158,22 +141,36 @@ void Tracer::Command(const std::vector<std::string> &strings,
 
       Fractal::ActionData actionData;
       actionData.action_type = static_cast<int>(f[current_index]);
-      actionData.DisplayOp = Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]);
-      switch (actionData.action_type)
+      if (actionData.action_type == Fractal::ACTION_TYPE::C_ITERATION)
       {
-      case Fractal::ACTION_TYPE::FOLD:
-        actionData.VecOp = actionData.DisplayOp.normalized();
-        break;
-      case Fractal::ACTION_TYPE::ROTATION:
-        actionData.QuatOp = EulerToQuat(actionData.DisplayOp);
-        break;
-      default:
-        actionData.VecOp = actionData.DisplayOp;
-        break;
+        actionData.IntOp = f[current_index + 1];
+        current_index += 2;
       }
-      current_index += 4;
+      else
+      {
+        actionData.DisplayOp = Eigen::Vector3f(f[current_index + 1], f[current_index + 2], f[current_index + 3]);
+        switch (actionData.action_type)
+        {
+        case Fractal::ACTION_TYPE::FOLD:
+          actionData.VecOp = actionData.DisplayOp.normalized();
+          actionData.VecOp2 = 2.f * actionData.DisplayOp.normalized();
+          break;
+        case Fractal::ACTION_TYPE::ROTATION:
+          actionData.QuatOp = EulerToQuat(actionData.DisplayOp);
+          break;
+        default:
+          actionData.VecOp = actionData.DisplayOp;
+          break;
+        }
+        current_index += 4;
+      }
       fr->CombinedActions.push_back(actionData);
     }
+
+    fr->GenColors();
+    fr->name += std::to_string(num_fractals++);
+    objects_p.push_back(static_cast<Shape*>(fr));
+
   }
 
 
@@ -466,6 +463,33 @@ Intersection &Tracer::FireRayIntoScene(Minimizer &m, Eigen::Vector3f &direction)
   m.closest_int.Reset();
   Eigen::BVMinimize(Tree, m);
   return m.closest_int;
+}
+
+void Tracer::TakeSnapshot(int snapshot_num)
+{
+  std::vector<Shape *> &target = snapshot_num == 0 ? frame_0 : frame_1;
+
+  //clear out old objects
+  for (size_t i = 0; i < target.size(); i++)
+  {
+    delete target[i];
+  }
+  target.clear();
+
+  for (size_t i = 0; i < objects_p.size(); i++)
+  {
+    target.push_back(objects_p[i]->Clone());
+  }
+}
+
+void Tracer::InterpolateSnapshots(float f)
+{
+  if (frame_0.size() != objects_p.size() || frame_1.size() != objects_p.size())
+    return;
+  for (size_t i = 0; i < objects_p.size(); i++)
+  {
+    objects_p[i]->SetFromInterpolation(frame_0[i], frame_1[i], f);
+  }
 }
 
 bool isNotValidVec(Eigen::Vector3f &v)

@@ -71,3 +71,18 @@ std::string Box::Serialize()
   }
   return ret;
 }
+
+Shape *Box::Clone()
+{
+  Box *b = new Box(base, extents, material);
+  return static_cast<Shape*>(b);
+}
+
+void Box::SetFromInterpolation(Shape *a, Shape *b, float t)
+{
+  Box *b0 = dynamic_cast<Box *>(a);
+  Box *b1 = dynamic_cast<Box *>(b);
+  base = b0->base * (1.f - t) + b1->base * t;
+  extents = b0->extents * (1.f - t) + b1->extents * t;
+  ResetSettings();
+}

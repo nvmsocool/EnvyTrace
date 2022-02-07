@@ -18,6 +18,9 @@ public:
   void Intersect(const Ray &in, Intersection &i);
   bool RenderGUI(size_t i);
 
+  virtual Shape *Clone();
+  virtual void SetFromInterpolation(Shape *a, Shape *b, float t);
+
   Eigen::Vector3f Base, Axis;
   float radius;
 };

@@ -20,5 +20,8 @@ public:
   bool RenderGUI(size_t i);
   virtual std::string Serialize();
 
+  virtual Shape *Clone();
+  virtual void SetFromInterpolation(Shape *a, Shape *b, float t);
+
   Eigen::Vector3f base, extents;
 };

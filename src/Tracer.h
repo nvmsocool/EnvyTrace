@@ -24,12 +24,7 @@ public:
   int requested_width, requested_height;
   Material *currentMat;
   Camera camera;
-  std::vector<Shape *> objects_p, lights_p;
-
-  std::vector<Sphere> spheres;
-  std::vector<Box> boxes;
-  std::vector<Cylinder> cylinders;
-  std::vector<Fractal> fractals;
+  std::vector<Shape *> objects_p, lights_p, frame_0, frame_1;
 
   std::vector<Material> materials;
   std::vector<Light> lights;
@@ -97,4 +92,8 @@ public:
   float info_dist;
   std::string info_name;
   Eigen::Vector3f info_pos;
+
+  //for gif rendering
+  void TakeSnapshot(int snapshot_num);
+  void InterpolateSnapshots(float i);
 };

@@ -105,3 +105,19 @@ bool Cylinder::RenderGUI(size_t i)
   }
   return changed;
 }
+
+Shape *Cylinder::Clone()
+{
+  Cylinder *c = new Cylinder(Base, Axis, radius, material);
+  return static_cast<Shape*>(c);
+}
+
+void Cylinder::SetFromInterpolation(Shape *a, Shape *b, float t)
+{
+  Cylinder *c0 = dynamic_cast<Cylinder *>(a);
+  Cylinder *c1 = dynamic_cast<Cylinder *>(b);
+  Base = c0->Base * (1.f - t) + c1->Base * t;
+  Axis = c0->Axis * (1.f - t) + c1->Axis * t;
+  radius = c0->radius * (1.f - t) + c1->radius * t;
+  ResetSettings();
+}

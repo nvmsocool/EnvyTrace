@@ -78,3 +78,18 @@ std::string Sphere::Serialize()
   ret += std::to_string(Radius) + " ";
   return ret;
 }
+
+Shape *Sphere::Clone()
+{
+  Sphere *s = new Sphere(Radius, Center, material);
+  return static_cast<Shape*>(s);
+}
+
+void Sphere::SetFromInterpolation(Shape *a, Shape *b, float t)
+{
+  Sphere *s0 = dynamic_cast<Sphere *>(a);
+  Sphere *s1 = dynamic_cast<Sphere *>(b);
+  Center = s0->Center * (1.f - t) + s1->Center * t;
+  Radius = s0->Radius * (1.f - t) + s1->Radius * t;
+  ResetSettings();
+}

@@ -295,6 +295,66 @@ std::string Fractal::Serialize()
   return ret;
 }
 
+/*
+*   Fractal(float _Scale, Eigen::Vector3f _Center, Eigen::Quaternionf _rot, Material *m)
+  {
+    this->name = "Fractal";
+    this->material = m;
+    Scale = _Scale;
+    Center = _Center;
+    this->BoundingBox = Eigen::AlignedBox<float, 3>(
+        -Eigen::Vector3f::Ones() * 1000,
+        Eigen::Vector3f::Ones() * 1000);
+    this->Position = Center;
+    rot_eulers = QuatToEuler(_rot);
+    rot = _rot;
+    rot_inv = rot.inverse();
+* 
+* */
+
+Shape *Fractal::Clone()
+{
+  Fractal *fr = new Fractal(Scale, Center, rot, material);
+  fr->SetRecursionProperties(max_iteration, num_subdivisions, min_distance);
+
+  for (auto a : CombinedActions)
+  {
+    fr->CombinedActions.push_back(a);
+  }
+
+  fr->GenColors();
+
+  return static_cast<Shape *>(fr);
+}
+
+void Fractal::SetFromInterpolation(Shape *a, Shape *b, float t)
+{
+  Fractal *f0 = dynamic_cast<Fractal *>(a);
+  Fractal *f1 = dynamic_cast<Fractal *>(b);
+
+  Scale = f0->Scale * (1.f - t) + f1->Scale * t;
+  Center = f0->Center * (1.f - t) + f1->Center * t;
+  rot = f0->rot.slerp(t,f1->rot);
+
+  this->Position = Center;
+  rot_eulers = QuatToEuler(rot);
+  rot_inv = rot.inverse();
+
+  max_iteration = f0->max_iteration * (1.f - t) + f1->max_iteration * t;
+  num_subdivisions = f0->num_subdivisions * (1.f - t) + f1->num_subdivisions * t;
+  min_distance = f0->min_distance * (1.f - t) + f1->min_distance * t;
+
+  for (size_t i = 0; i < CombinedActions.size(); i++)
+  {
+    CombinedActions[i].DisplayOp = f0->CombinedActions[i].DisplayOp * (1.f - t) + f1->CombinedActions[i].DisplayOp * t;
+    CombinedActions[i].QuatOp = EulerToQuat(CombinedActions[i].DisplayOp);
+    CombinedActions[i].VecOp = f0->CombinedActions[i].VecOp * (1.f - t) + f1->CombinedActions[i].VecOp * t;
+    CombinedActions[i].VecOp2 = 2.f * CombinedActions[i].VecOp;
+    CombinedActions[i].Color = f0->CombinedActions[i].Color * (1.f - t) + f1->CombinedActions[i].Color * t;
+    CombinedActions[i].IntOp = f0->CombinedActions[i].IntOp * (1.f - t) + f1->CombinedActions[i].IntOp * t;
+  }
+}
+
 float Fractal::DE_Sphere(Eigen::Vector3f p)
 {
   Eigen::Vector3f floored(std::fmod(p.x(), 1.f) - 0.5f, std::fmod(p.y(), 1.f) - 0.5f, p.z());
@@ -480,7 +540,6 @@ void Fractal::GenColors()
       float val = static_cast<float>(current_color) / static_cast<float>(num_folds);
       CombinedActions[i].Color = ColorFromFloat(val);
       current_color++;
-      CombinedActions[i].VecOp2 = 2 * CombinedActions[i].VecOp;
     }
   }
 }

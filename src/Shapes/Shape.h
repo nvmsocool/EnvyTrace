@@ -27,5 +27,8 @@ public:
   float SurfaceArea;
   std::string name;
 
+  virtual Shape* Clone() = 0;
+  virtual void SetFromInterpolation(Shape *a, Shape *b, float t) = 0;
+
   float originErrorMargin {0.001f};
 };

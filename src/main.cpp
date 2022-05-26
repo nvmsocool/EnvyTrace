@@ -33,11 +33,13 @@
 GifWriter *gif_writer;
 bool wannaTraceGif{ false };
 bool isTracingGif{ false };
-int numGifFrames{ 10 };
+int numGifFrames{ 500 };
+int currentGifTrace{ 0 };
 int currentGifFrame{ 0 };
-int gifDelay{ 100 };
-int tracesPerGifFrame{ 3 };
+int gifDelay{ 4 };
+int tracesPerGifFrame{ 100 };
 
+std::vector<ImageData> gifImages;
 ImageData image, preview;
 
 //tracer variables
@@ -228,7 +230,14 @@ void DrawGUI()
   ImGui::Begin("Fractal Tracer", NULL, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize); // Create a window called "Hello, world!" and append into it.
 
   ImGui::Text("GUI (%.1f FPS)", guiFPS);
-  ImGui::ProgressBar(image.pctComplete, ImVec2(-1, 0), (std::string("Frame ") + std::to_string(image.trace_num)).data());
+  if (isTracingGif)
+  {
+    ImGui::ProgressBar(gifImages[currentGifFrame].pctComplete, ImVec2(-1, 0), (std::string("Frame ") + std::to_string(currentGifFrame)).data());
+  }
+  else
+  {
+    ImGui::ProgressBar(image.pctComplete, ImVec2(-1, 0), (std::string("Frame ") + std::to_string(image.trace_num)).data());
+  }
   ImGui::Text("%.3fs/trace, conv=%.4f", traceDuration, traceDiff);
   ImGui::Text("Preview Ratio: %.4f", previewRatio);
   if (ImGui::CollapsingHeader("under mouse", ImGuiTreeNodeFlags_DefaultOpen))
@@ -312,10 +321,10 @@ void DrawGUI()
     {
       if (isTracingGif)
       {
+        ImGui::Text(("Trace: " + std::to_string(currentGifTrace)).data());
         ImGui::Text(("Frame: " + std::to_string(currentGifFrame)).data());
         if (ImGui::Button("Stop"))
         {
-          GifEnd(gif_writer);
           isTracingGif = false;
         }
       }
@@ -337,7 +346,13 @@ void DrawGUI()
         {
           isTracingGif = true;
           tracer->camera.controlsEnabled = false;
-          currentGifFrame = -1;
+          currentGifTrace = 0;
+          gifImages.resize(numGifFrames);
+          for (size_t i = 0; i < numGifFrames; i++)
+          {
+            gifImages[i].Clear();
+            gifImages[i].Resize(image.w, image.h);
+          }
         }
       }
     }
@@ -463,21 +478,68 @@ void InterfaceLoop()
         shouldReload = false;
       }
 
-      if (isTracingGif)
-        HandleGifFrame();
-
       auto start_time = std::chrono::high_resolution_clock::now();
-
       bool update_pass = (image.trace_num - 1) % 10 == 0 || wannaTraceGif || isTracingGif;
-      float diff = tracer->TraceImage(image, update_pass, numThreadsToUse);
-      if (update_pass)
-        traceDiff = diff;
+
+      if (isTracingGif)
+      {
+        //trace each frame once
+        for (currentGifFrame = 0; currentGifFrame < numGifFrames; currentGifFrame++)
+        {
+          //set current state by interpolate between start and end states
+          tracer->InterpolateSnapshots((float)(currentGifFrame) / (float)(numGifFrames));
+          float diff = tracer->TraceImage(gifImages[currentGifFrame], false, numThreadsToUse);
+        }
+      }
+      else
+      {
+        float diff = tracer->TraceImage(image, update_pass, numThreadsToUse);
+        if (update_pass)
+          traceDiff = diff;
+      }
 
       auto end_time = std::chrono::high_resolution_clock::now();
       float ms = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
       traceDuration = ms / 1000000.f;
 
-      if (update_pass && !isTracingGif)
+      if (isTracingGif)
+      {
+        //re-write gif
+        GifBegin(gif_writer, gifName.data(), tracer->requested_width, tracer->requested_height, gifDelay);
+        for (size_t i = 0; i < numGifFrames; i++)
+        {
+          if (!isTracingGif)
+            continue;
+          //write gif frame
+          int width = tracer->requested_width;
+          int height = tracer->requested_height;
+          std::vector<uint8_t> frame(width * height * 4, 0);
+
+          for (int y = 0; y < height; y++)
+          {
+            int y_add = y * width;
+            for (int x = 0; x < width; x++)
+            {
+              int pos = y_add + x;
+              for (size_t k = 0; k < 4; k++)
+              {
+                frame[pos * 4 + k] = (uint8_t)(255.f * gifImages[i].data[pos][k]);
+              }
+            }
+          }
+
+          GifWriteFrame(gif_writer, frame.data(), width, height, gifDelay);
+        }
+        GifEnd(gif_writer);
+        currentGifTrace++;
+        if (currentGifTrace > numGifFrames)
+        {
+          // pause trace
+          tracer->isPaused = true;
+          isTracingGif = false;
+        }
+      }
+      else if (update_pass)
       {
         //just in case...
         generateBitmapImage(image, bmpName.data());
@@ -491,63 +553,6 @@ void ResetFileName()
   sceneName = baseName + ".scn";
   bmpName = baseName + ".bmp";
   gifName = baseName + ".gif";
-}
-
-void HandleGifFrame()
-{
-
-  if (currentGifFrame == -1)
-  {
-    GifBegin(gif_writer, gifName.data(), tracer->requested_width, tracer->requested_height, gifDelay);
-    currentGifFrame = 0;
-    tracer->InterpolateSnapshots(0);
-    ResetTrace();
-    return;
-  }
-
-  //exit if convergence is above threshold
-  if (image.trace_num <= tracesPerGifFrame)
-    return;
-
-  //write gif frame
-  int width = tracer->requested_width;
-  int height = tracer->requested_height;
-  std::vector<uint8_t> frame(width * height * 4, 0);
-
-  for (int y = 0; y < height; y++)
-  {
-    int y_add = y * width;
-    for (int x = 0; x < width; x++)
-    {
-      int pos = y_add + x;
-      for (size_t k = 0; k < 4; k++)
-      {
-        frame[pos * 4 + k] = (uint8_t)(255.f * image.data[pos][k]);
-      }
-    }
-  }
-
-  GifWriteFrame(gif_writer, frame.data(), width, height, gifDelay);
-
-  //advance frame count
-  currentGifFrame++;
-
-  // exit or reset
-  if (currentGifFrame > numGifFrames)
-  {
-    //   pause trace
-    tracer->isPaused;
-
-    //   end gif
-    GifEnd(gif_writer);
-    isTracingGif = false;
-  }
-  else
-  {
-    //set current state by interpolate between start and end states
-    tracer->InterpolateSnapshots((float)(currentGifFrame) / (float)(numGifFrames));
-    ResetTrace();
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////
